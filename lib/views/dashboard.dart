@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
+import 'inventory.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -188,8 +189,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     icon: Icons.inventory,
                     color: Colors.orange,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Ver inventario')),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const InventoryScreen(),
+                        ),
                       );
                     },
                   ),
@@ -290,7 +293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _buildMenuTile(
                   icon: Icons.dashboard,
-                  title: 'Dashboard',
+                  title: 'Inicio',
                   isActive: true,
                   onTap: () {
                     Navigator.pop(context);
@@ -301,8 +304,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Inventario',
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Inventario')),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const InventoryScreen(),
+                      ),
                     );
                   },
                 ),
@@ -353,6 +358,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Reportes')),
+                    );
+                  },
+                ),
+                _buildMenuTile(
+                  icon: Icons.admin_panel_settings,
+                  title: 'Administración',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Administración')),
                     );
                   },
                 ),
