@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'inventory.dart';
+import 'inputs.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -316,8 +317,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Entradas',
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Entradas')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InputsScreen(),
+                      ),
                     );
                   },
                 ),

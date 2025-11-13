@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'inputs.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -517,8 +518,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                       _closeDrawer();
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Entradas - Próximamente')),
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const InputsScreen(),
+                          ),
                         );
                       });
                     },
