@@ -7,9 +7,8 @@ class InputsScreen extends StatefulWidget {
   State<InputsScreen> createState() => _InputsScreenState();
 }
 
-class _InputsScreenState extends State<InputsScreen> 
+class _InputsScreenState extends State<InputsScreen>
     with SingleTickerProviderStateMixin {
-  
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _slideAnimation;
@@ -23,7 +22,7 @@ class _InputsScreenState extends State<InputsScreen>
   // Controladores de scroll
   final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
-  
+
   // Filtro por mes (1-12) - null = sin filtro
   int? _selectedMonth;
   // Año seleccionado para el filtro
@@ -82,30 +81,18 @@ class _InputsScreenState extends State<InputsScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.7,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 300.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: -0.3,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.7).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<double>(begin: 0.0, end: 300.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _rotationAnimation = Tween<double>(begin: 0.0, end: -0.3).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -129,10 +116,9 @@ class _InputsScreenState extends State<InputsScreen>
             .toString()
             .toLowerCase()
             .contains(_searchQuery.toLowerCase());
-        final codigoMatch = entrada['codigo']
-            .toString()
-            .toLowerCase()
-            .contains(_searchQuery.toLowerCase());
+        final codigoMatch = entrada['codigo'].toString().toLowerCase().contains(
+          _searchQuery.toLowerCase(),
+        );
         final lugarMatch = entrada['lugarResguardo']
             .toString()
             .toLowerCase()
@@ -210,7 +196,10 @@ class _InputsScreenState extends State<InputsScreen>
       builder: (context) {
         // rango de años para elegir
         final currentYear = DateTime.now().year;
-        final years = List<int>.generate(6, (i) => currentYear - 3 + i); // current-3 .. current+2
+        final years = List<int>.generate(
+          6,
+          (i) => currentYear - 3 + i,
+        ); // current-3 .. current+2
 
         int? tempMonth = _selectedMonth;
         int? tempYear = _selectedYear;
@@ -225,7 +214,10 @@ class _InputsScreenState extends State<InputsScreen>
                   children: [
                     // Header con título, selector de año y acciones
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Row(
                         children: [
                           const Expanded(
@@ -297,17 +289,27 @@ class _InputsScreenState extends State<InputsScreen>
                           final monthValue = index + 1;
                           final selected = tempMonth == monthValue;
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             title: Text(
                               _monthNames[index],
                               style: TextStyle(
                                 fontSize: 16,
-                                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                                color: selected ? Colors.black : Colors.grey[800],
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: selected
+                                    ? Colors.black
+                                    : Colors.grey[800],
                               ),
                             ),
                             trailing: selected
-                                ? const Icon(Icons.check_circle, color: Color(0xFF16A34A))
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF16A34A),
+                                  )
                                 : null,
                             onTap: () {
                               setStateDialog(() {
@@ -339,23 +341,22 @@ class _InputsScreenState extends State<InputsScreen>
             children: [
               // Sidebar (Drawer)
               _buildSidebar(),
-              
+
               // Main Content con transformación 3D
               Transform(
                 alignment: Alignment.centerLeft,
                 transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.0008)
-                  ..translate(_slideAnimation.value)
-                  ..scale(_scaleAnimation.value)
-                  ..rotateY(_rotationAnimation.value),
+                  ..setEntry(3, 2, 0.001) // perspectiva
+                  ..translate(_slideAnimation.value, 0.0, 0.0) // solo X
+                  ..rotateY(_rotationAnimation.value) // primero rotación
+                  ..scale(_scaleAnimation.value), // después escala
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(_isDrawerOpen ? 25 : 0),
                     boxShadow: _isDrawerOpen
                         ? [
                             BoxShadow(
-                              // ignore: deprecated_member_use
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withValues(alpha: 0.4),
                               blurRadius: 25,
                               spreadRadius: 8,
                               offset: const Offset(-5, 0),
@@ -369,7 +370,7 @@ class _InputsScreenState extends State<InputsScreen>
                   ),
                 ),
               ),
-              
+
               // Overlay cuando el drawer está abierto
               if (_isDrawerOpen)
                 Positioned(
@@ -416,10 +417,7 @@ class _InputsScreenState extends State<InputsScreen>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.red,
-                      border: Border.all(
-                        color: Colors.grey[700]!,
-                        width: 3,
-                      ),
+                      border: Border.all(color: Colors.grey[700]!, width: 3),
                     ),
                     child: const Icon(
                       Icons.person,
@@ -428,7 +426,7 @@ class _InputsScreenState extends State<InputsScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Nombre del usuario
                   const Text(
                     'Ezequiel Velez',
@@ -439,19 +437,16 @@ class _InputsScreenState extends State<InputsScreen>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  
+
                   // Cargo
                   Text(
                     'Administrador de Inventario',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[400],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                   ),
                 ],
               ),
             ),
-            
+
             // Opciones del menú
             Expanded(
               child: ListView(
@@ -498,7 +493,9 @@ class _InputsScreenState extends State<InputsScreen>
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Asignaciones - Próximamente')),
+                          const SnackBar(
+                            content: Text('Asignaciones - Próximamente'),
+                          ),
                         );
                       });
                     },
@@ -512,7 +509,9 @@ class _InputsScreenState extends State<InputsScreen>
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Devoluciones - Próximamente')),
+                          const SnackBar(
+                            content: Text('Devoluciones - Próximamente'),
+                          ),
                         );
                       });
                     },
@@ -526,7 +525,9 @@ class _InputsScreenState extends State<InputsScreen>
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Reposiciones - Próximamente')),
+                          const SnackBar(
+                            content: Text('Reposiciones - Próximamente'),
+                          ),
                         );
                       });
                     },
@@ -540,7 +541,9 @@ class _InputsScreenState extends State<InputsScreen>
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Reportes - Próximamente')),
+                          const SnackBar(
+                            content: Text('Reportes - Próximamente'),
+                          ),
                         );
                       });
                     },
@@ -554,7 +557,9 @@ class _InputsScreenState extends State<InputsScreen>
                       Future.delayed(const Duration(milliseconds: 350), () {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Administración - Próximamente')),
+                          const SnackBar(
+                            content: Text('Administración - Próximamente'),
+                          ),
                         );
                       });
                     },
@@ -562,7 +567,7 @@ class _InputsScreenState extends State<InputsScreen>
                 ],
               ),
             ),
-            
+
             // Botón de cerrar sesión
             Container(
               padding: const EdgeInsets.all(20),
@@ -574,10 +579,9 @@ class _InputsScreenState extends State<InputsScreen>
                   _closeDrawer();
                   Future.delayed(const Duration(milliseconds: 350), () {
                     // ignore: use_build_context_synchronously
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/',
-                      (route) => false,
-                    );
+                    Navigator.of(
+                      context,
+                    ).pushNamedAndRemoveUntil('/', (route) => false);
                   });
                 },
               ),
@@ -599,10 +603,7 @@ class _InputsScreenState extends State<InputsScreen>
         scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: _toggleDrawer,
-          icon: const Icon(
-            Icons.menu,
-            color: Colors.black,
-          ),
+          icon: const Icon(Icons.menu, color: Colors.black),
         ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -627,10 +628,7 @@ class _InputsScreenState extends State<InputsScreen>
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: Colors.grey[300],
-            height: 1.0,
-          ),
+          child: Container(color: Colors.grey[300], height: 1.0),
         ),
       ),
       body: Padding(
@@ -650,14 +648,17 @@ class _InputsScreenState extends State<InputsScreen>
                       onTap: _showMonthFilterDialog,
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[300]!),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -669,7 +670,9 @@ class _InputsScreenState extends State<InputsScreen>
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF22C55E).withOpacity(0.12),
+                                color: const Color(
+                                  0xFF22C55E,
+                                ).withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -753,7 +756,7 @@ class _InputsScreenState extends State<InputsScreen>
             ),
 
             const SizedBox(height: 20),
-            
+
             // Buscador
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -763,7 +766,7 @@ class _InputsScreenState extends State<InputsScreen>
                 border: Border.all(color: Colors.grey[300]!),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -773,10 +776,7 @@ class _InputsScreenState extends State<InputsScreen>
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Buscar por herramienta, código o ubicación...',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                  ),
+                  hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
                   prefixIcon: Icon(
                     Icons.search,
                     color: Colors.grey[500],
@@ -798,9 +798,7 @@ class _InputsScreenState extends State<InputsScreen>
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -809,9 +807,9 @@ class _InputsScreenState extends State<InputsScreen>
                 },
               ),
             ),
-            
+
             const SizedBox(height: 30),
-            
+
             // Tabla de entradas
             Expanded(
               child: OrientationBuilder(
@@ -828,120 +826,126 @@ class _InputsScreenState extends State<InputsScreen>
                       child: SizedBox(
                         width: double.infinity,
                         child: Column(
-                        children: [
-                          // Cabecera de tabla horizontal
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
+                          children: [
+                            // Cabecera de tabla horizontal
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    'HERRAMIENTA',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'CÓDIGO',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  flex: 1,
-                                  child: Text(
-                                    'CANT.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                      const Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          'LUGAR RESGUARDO',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'FECHA',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                const Expanded(
-                                  flex: 1,
-                                  child: Text(
-                                    'ACCIONES',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Lista horizontal
-                          Expanded(
-                            child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: Colors.grey[50],
                                 borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
+                                  topLeft: Radius.circular(16),
+                                  topRight: Radius.circular(16),
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'HERRAMIENTA',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'CÓDIGO',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    flex: 1,
+                                    child: Text(
+                                      'CANT.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'LUGAR RESGUARDO',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'FECHA',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    flex: 1,
+                                    child: Text(
+                                      'ACCIONES',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: _buildHorizontalLayout(),
                             ),
-                          ),
-                        ],
+                            // Lista horizontal
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: const BorderRadius.only(
+                                    bottomLeft: Radius.circular(16),
+                                    bottomRight: Radius.circular(16),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: _buildHorizontalLayout(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ));
+                    );
                   }
                 },
               ),
@@ -983,12 +987,7 @@ class _InputsScreenState extends State<InputsScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey[200]!,
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1031,10 +1030,7 @@ class _InputsScreenState extends State<InputsScreen>
             flex: 2,
             child: Text(
               entrada['lugarResguardo'] ?? 'N/A',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1067,14 +1063,19 @@ class _InputsScreenState extends State<InputsScreen>
                     onPressed: () {
                       // Find real index in the backing list
                       final realIndex = _entradas.indexOf(entrada);
-                      if (realIndex >= 0) _showEditEntryModal(entrada, realIndex);
+                      if (realIndex >= 0) {
+                        _showEditEntryModal(entrada, realIndex);
+                      }
                     },
                     icon: const Icon(Icons.edit, size: 18),
                     tooltip: 'Editar',
                     color: Colors.grey[800],
                     splashRadius: 20,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 38,
+                      height: 38,
+                    ),
                     alignment: Alignment.center,
                   ),
                 ),
@@ -1084,7 +1085,7 @@ class _InputsScreenState extends State<InputsScreen>
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.06),
+                    color: Colors.red.withValues(alpha: 0.06),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -1103,11 +1104,15 @@ class _InputsScreenState extends State<InputsScreen>
                               onPressed: () {
                                 setState(() {
                                   final realIndex = _entradas.indexOf(entrada);
-                                  if (realIndex >= 0) _entradas.removeAt(realIndex);
+                                  if (realIndex >= 0)
+                                    _entradas.removeAt(realIndex);
                                 });
                                 Navigator.of(ctx).pop();
                               },
-                              child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                              child: const Text(
+                                'Eliminar',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         ),
@@ -1118,7 +1123,10 @@ class _InputsScreenState extends State<InputsScreen>
                     color: Colors.red,
                     splashRadius: 20,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 38,
+                      height: 38,
+                    ),
                     alignment: Alignment.center,
                   ),
                 ),
@@ -1130,7 +1138,7 @@ class _InputsScreenState extends State<InputsScreen>
     );
   }
 
-  // Tarjeta vertical con diseño 2x5 
+  // Tarjeta vertical con diseño 2x5
   Widget _buildVerticalCard(Map<String, dynamic> entrada, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1149,20 +1157,12 @@ class _InputsScreenState extends State<InputsScreen>
         ],
       ),
       child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(1.5),
-          1: FlexColumnWidth(1.5),
-        },
-        border: TableBorder.all(
-          color: Colors.grey[200]!,
-          width: 1,
-        ),
+        columnWidths: const {0: FlexColumnWidth(1.5), 1: FlexColumnWidth(1.5)},
+        border: TableBorder.all(color: Colors.grey[200]!, width: 1),
         children: [
           // Fila 1: Herramienta
           TableRow(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[50]),
             children: [
               Padding(
                 padding: EdgeInsets.all(16.0),
@@ -1209,7 +1209,7 @@ class _InputsScreenState extends State<InputsScreen>
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Color(0xFF22C55E).withOpacity(0.1),
+                    color: Color(0xFF22C55E).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1227,9 +1227,7 @@ class _InputsScreenState extends State<InputsScreen>
           ),
           // Fila 3: Cantidad
           TableRow(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[50]),
             children: [
               Padding(
                 padding: EdgeInsets.all(16.0),
@@ -1247,11 +1245,7 @@ class _InputsScreenState extends State<InputsScreen>
                 padding: EdgeInsets.all(16.0),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.inventory_2,
-                      size: 18,
-                      color: Colors.grey[600],
-                    ),
+                    Icon(Icons.inventory_2, size: 18, color: Colors.grey[600]),
                     SizedBox(width: 8),
                     Text(
                       entrada['cantidad'].toString(),
@@ -1285,19 +1279,12 @@ class _InputsScreenState extends State<InputsScreen>
                 padding: EdgeInsets.all(16.0),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.place,
-                      size: 18,
-                      color: Colors.grey[600],
-                    ),
+                    Icon(Icons.place, size: 18, color: Colors.grey[600]),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         entrada['lugarResguardo'] ?? '',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                     ),
                   ],
@@ -1307,9 +1294,7 @@ class _InputsScreenState extends State<InputsScreen>
           ),
           // Fila 5: Fecha
           TableRow(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[50]),
             children: [
               Padding(
                 padding: EdgeInsets.all(16.0),
@@ -1381,7 +1366,10 @@ class _InputsScreenState extends State<InputsScreen>
                         color: Colors.grey[800],
                         splashRadius: 20,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 38,
+                          height: 38,
+                        ),
                         alignment: Alignment.center,
                       ),
                     ),
@@ -1391,7 +1379,7 @@ class _InputsScreenState extends State<InputsScreen>
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.06),
+                        color: Colors.red.withValues(alpha: 0.06),
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
@@ -1401,7 +1389,9 @@ class _InputsScreenState extends State<InputsScreen>
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Confirmar eliminación'),
-                              content: const Text('¿Deseas eliminar esta entrada?'),
+                              content: const Text(
+                                '¿Deseas eliminar esta entrada?',
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(ctx).pop(),
@@ -1428,7 +1418,10 @@ class _InputsScreenState extends State<InputsScreen>
                         color: Colors.red,
                         splashRadius: 20,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 38,
+                          height: 38,
+                        ),
                         alignment: Alignment.center,
                       ),
                     ),
@@ -1456,7 +1449,7 @@ class _InputsScreenState extends State<InputsScreen>
     ValueNotifier<String?> codigoError = ValueNotifier<String?>(null);
     ValueNotifier<String?> cantidadError = ValueNotifier<String?>(null);
     ValueNotifier<String?> lugarError = ValueNotifier<String?>(null);
-    
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
@@ -1478,7 +1471,7 @@ class _InputsScreenState extends State<InputsScreen>
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header del modal
           Padding(
             padding: const EdgeInsets.all(20),
@@ -1487,10 +1480,7 @@ class _InputsScreenState extends State<InputsScreen>
               children: [
                 const Text(
                   'Nueva Entrada',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -1499,7 +1489,7 @@ class _InputsScreenState extends State<InputsScreen>
               ],
             ),
           ),
-          
+
           // Formulario
           Expanded(
             child: SingleChildScrollView(
@@ -1533,19 +1523,25 @@ class _InputsScreenState extends State<InputsScreen>
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : const Color(0xFF22C55E),
+                              color: error != null
+                                  ? Colors.red
+                                  : const Color(0xFF22C55E),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -1557,7 +1553,7 @@ class _InputsScreenState extends State<InputsScreen>
                     },
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Campo Código
                   const Text(
                     'Código',
@@ -1584,19 +1580,25 @@ class _InputsScreenState extends State<InputsScreen>
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : const Color(0xFF22C55E),
+                              color: error != null
+                                  ? Colors.red
+                                  : const Color(0xFF22C55E),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -1608,7 +1610,7 @@ class _InputsScreenState extends State<InputsScreen>
                     },
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Campo Cantidad
                   const Text(
                     'Cantidad',
@@ -1636,19 +1638,25 @@ class _InputsScreenState extends State<InputsScreen>
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : const Color(0xFF22C55E),
+                              color: error != null
+                                  ? Colors.red
+                                  : const Color(0xFF22C55E),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -1660,7 +1668,7 @@ class _InputsScreenState extends State<InputsScreen>
                     },
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Campo Lugar de Resguardo
                   const Text(
                     'Lugar de Resguardo',
@@ -1687,19 +1695,25 @@ class _InputsScreenState extends State<InputsScreen>
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : const Color(0xFF22C55E),
+                              color: error != null
+                                  ? Colors.red
+                                  : const Color(0xFF22C55E),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: error != null ? Colors.red : Colors.grey[300]!,
+                              color: error != null
+                                  ? Colors.red
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -1711,7 +1725,7 @@ class _InputsScreenState extends State<InputsScreen>
                     },
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Campo Fecha (solo lectura)
                   const Text(
                     'Fecha de Entrada',
@@ -1728,7 +1742,11 @@ class _InputsScreenState extends State<InputsScreen>
                     enabled: false,
                     decoration: InputDecoration(
                       hintText: 'Fecha automática',
-                      suffixIcon: Icon(Icons.lock_outlined, size: 20, color: Colors.grey[600]),
+                      suffixIcon: Icon(
+                        Icons.lock_outlined,
+                        size: 20,
+                        color: Colors.grey[600],
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey[300]!),
@@ -1750,7 +1768,7 @@ class _InputsScreenState extends State<InputsScreen>
               ),
             ),
           ),
-          
+
           // Botones de acción
           Container(
             padding: const EdgeInsets.all(20),
@@ -1782,43 +1800,44 @@ class _InputsScreenState extends State<InputsScreen>
                     onPressed: () {
                       // Validar campos individualmente
                       bool hasErrors = false;
-                      
+
                       if (herramientaController.text.isEmpty) {
                         herramientaError.value = 'Este campo es requerido';
                         hasErrors = true;
                       }
-                      
+
                       if (codigoController.text.isEmpty) {
                         codigoError.value = 'Este campo es requerido';
                         hasErrors = true;
                       }
-                      
+
                       if (cantidadController.text.isEmpty) {
                         cantidadError.value = 'Este campo es requerido';
                         hasErrors = true;
                       }
-                      
+
                       if (lugarController.text.isEmpty) {
                         lugarError.value = 'Este campo es requerido';
                         hasErrors = true;
                       }
-                      
+
                       // Si hay errores, no continuar
                       if (hasErrors) {
                         return;
                       }
-                      
+
                       // Agregar nueva entrada
                       setState(() {
                         _entradas.insert(0, {
                           'herramienta': herramientaController.text,
                           'codigo': codigoController.text,
-                          'cantidad': int.tryParse(cantidadController.text) ?? 0,
+                          'cantidad':
+                              int.tryParse(cantidadController.text) ?? 0,
                           'lugarResguardo': lugarController.text,
                           'fecha': fechaController.text,
                         });
                       });
-                      
+
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -1854,11 +1873,21 @@ class _InputsScreenState extends State<InputsScreen>
   }
 
   void _showEditEntryModal(Map<String, dynamic> entrada, int index) {
-    final TextEditingController herramientaController = TextEditingController(text: entrada['herramienta']);
-    final TextEditingController codigoController = TextEditingController(text: entrada['codigo']);
-    final TextEditingController cantidadController = TextEditingController(text: entrada['cantidad'].toString());
-    final TextEditingController lugarController = TextEditingController(text: entrada['lugarResguardo']);
-    final TextEditingController fechaController = TextEditingController(text: entrada['fecha']);
+    final TextEditingController herramientaController = TextEditingController(
+      text: entrada['herramienta'],
+    );
+    final TextEditingController codigoController = TextEditingController(
+      text: entrada['codigo'],
+    );
+    final TextEditingController cantidadController = TextEditingController(
+      text: entrada['cantidad'].toString(),
+    );
+    final TextEditingController lugarController = TextEditingController(
+      text: entrada['lugarResguardo'],
+    );
+    final TextEditingController fechaController = TextEditingController(
+      text: entrada['fecha'],
+    );
 
     // Variables para controlar los errores de validación
     ValueNotifier<String?> herramientaError = ValueNotifier<String?>(null);
@@ -1921,7 +1950,10 @@ class _InputsScreenState extends State<InputsScreen>
                     children: [
                       const Text(
                         'Nombre de la Herramienta',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       ValueListenableBuilder<String?>(
@@ -1930,14 +1962,19 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: herramientaController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null) herramientaError.value = null;
+                              if (value.isNotEmpty && error != null)
+                                herramientaError.value = null;
                             },
                             decoration: InputDecoration(
                               hintText: 'Ej: Taladro Makita',
                               errorText: error,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: error != null ? Colors.red : Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                  color: error != null
+                                      ? Colors.red
+                                      : Colors.grey[300]!,
+                                ),
                               ),
                             ),
                           );
@@ -1945,7 +1982,13 @@ class _InputsScreenState extends State<InputsScreen>
                       ),
                       const SizedBox(height: 20),
 
-                      const Text('Código', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Código',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       ValueListenableBuilder<String?>(
                         valueListenable: codigoError,
@@ -1953,19 +1996,33 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: codigoController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null) codigoError.value = null;
+                              if (value.isNotEmpty && error != null)
+                                codigoError.value = null;
                             },
                             decoration: InputDecoration(
                               hintText: 'Ej: HT-0024',
                               errorText: error,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: error != null ? Colors.red : Colors.grey[300]!)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: error != null
+                                      ? Colors.red
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
                             ),
                           );
                         },
                       ),
                       const SizedBox(height: 20),
 
-                      const Text('Cantidad', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Cantidad',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       ValueListenableBuilder<String?>(
                         valueListenable: cantidadError,
@@ -1974,15 +2031,33 @@ class _InputsScreenState extends State<InputsScreen>
                             controller: cantidadController,
                             keyboardType: TextInputType.number,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null) cantidadError.value = null;
+                              if (value.isNotEmpty && error != null)
+                                cantidadError.value = null;
                             },
-                            decoration: InputDecoration(hintText: '0', errorText: error, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: error != null ? Colors.red : Colors.grey[300]!))),
+                            decoration: InputDecoration(
+                              hintText: '0',
+                              errorText: error,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: error != null
+                                      ? Colors.red
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
                       const SizedBox(height: 20),
 
-                      const Text('Lugar de Resguardo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Lugar de Resguardo',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       ValueListenableBuilder<String?>(
                         valueListenable: lugarError,
@@ -1990,21 +2065,56 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: lugarController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null) lugarError.value = null;
+                              if (value.isNotEmpty && error != null)
+                                lugarError.value = null;
                             },
-                            decoration: InputDecoration(hintText: 'Ej: Almacén Central', errorText: error, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: error != null ? Colors.red : Colors.grey[300]!))),
+                            decoration: InputDecoration(
+                              hintText: 'Ej: Almacén Central',
+                              errorText: error,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: error != null
+                                      ? Colors.red
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
                       const SizedBox(height: 20),
 
-                      const Text('Fecha de Entrada', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Fecha de Entrada',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: fechaController,
                         readOnly: true,
                         enabled: false,
-                        decoration: InputDecoration(hintText: 'Fecha automática', suffixIcon: Icon(Icons.lock_outlined, size: 20, color: Colors.grey[600]), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)), disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)), fillColor: Colors.grey[100], filled: true),
+                        decoration: InputDecoration(
+                          hintText: 'Fecha automática',
+                          suffixIcon: Icon(
+                            Icons.lock_outlined,
+                            size: 20,
+                            color: Colors.grey[600],
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          fillColor: Colors.grey[100],
+                          filled: true,
+                        ),
                       ),
                       const SizedBox(height: 30),
                     ],
@@ -2019,8 +2129,21 @@ class _InputsScreenState extends State<InputsScreen>
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[400]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 16)),
-                        child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600, fontSize: 16)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey[400]!),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text(
+                          'Cancelar',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -2028,17 +2151,30 @@ class _InputsScreenState extends State<InputsScreen>
                       child: ElevatedButton(
                         onPressed: () {
                           bool hasErrors = false;
-                          if (herramientaController.text.isEmpty) { herramientaError.value = 'Este campo es requerido'; hasErrors = true; }
-                          if (codigoController.text.isEmpty) { codigoError.value = 'Este campo es requerido'; hasErrors = true; }
-                          if (cantidadController.text.isEmpty) { cantidadError.value = 'Este campo es requerido'; hasErrors = true; }
-                          if (lugarController.text.isEmpty) { lugarError.value = 'Este campo es requerido'; hasErrors = true; }
+                          if (herramientaController.text.isEmpty) {
+                            herramientaError.value = 'Este campo es requerido';
+                            hasErrors = true;
+                          }
+                          if (codigoController.text.isEmpty) {
+                            codigoError.value = 'Este campo es requerido';
+                            hasErrors = true;
+                          }
+                          if (cantidadController.text.isEmpty) {
+                            cantidadError.value = 'Este campo es requerido';
+                            hasErrors = true;
+                          }
+                          if (lugarController.text.isEmpty) {
+                            lugarError.value = 'Este campo es requerido';
+                            hasErrors = true;
+                          }
                           if (hasErrors) return;
 
                           setState(() {
                             _entradas[index] = {
                               'herramienta': herramientaController.text,
                               'codigo': codigoController.text,
-                              'cantidad': int.tryParse(cantidadController.text) ?? 0,
+                              'cantidad':
+                                  int.tryParse(cantidadController.text) ?? 0,
                               'lugarResguardo': lugarController.text,
                               'fecha': fechaController.text,
                             };
@@ -2046,11 +2182,28 @@ class _InputsScreenState extends State<InputsScreen>
 
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Entrada actualizada'), backgroundColor: Color(0xFF22C55E)),
+                            const SnackBar(
+                              content: Text('Entrada actualizada'),
+                              backgroundColor: Color(0xFF22C55E),
+                            ),
                           );
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 16), elevation: 0),
-                        child: const Text('Guardar Cambios', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Guardar Cambios',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -2080,7 +2233,7 @@ class _InputsScreenState extends State<InputsScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isActive 
+              color: isActive
                   // ignore: deprecated_member_use
                   ? Colors.red.withOpacity(0.1)
                   : Colors.transparent,
@@ -2094,22 +2247,22 @@ class _InputsScreenState extends State<InputsScreen>
               children: [
                 Icon(
                   icon,
-                  color: isLogout 
-                      ? Colors.red 
-                      : isActive 
-                          ? Colors.red 
-                          : Colors.grey[400],
+                  color: isLogout
+                      ? Colors.red
+                      : isActive
+                      ? Colors.red
+                      : Colors.grey[400],
                   size: 24,
                 ),
                 const SizedBox(width: 16),
                 Text(
                   title,
                   style: TextStyle(
-                    color: isLogout 
-                        ? Colors.red 
-                        : isActive 
-                            ? Colors.white 
-                            : Colors.grey[300],
+                    color: isLogout
+                        ? Colors.red
+                        : isActive
+                        ? Colors.white
+                        : Colors.grey[300],
                     fontSize: 16,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   ),

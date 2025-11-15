@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'inputs.dart';
+import '../components/custom_sidebar.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3, Quaternion;
+import '../api/inventary_controller.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -8,25 +10,19 @@ class InventoryScreen extends StatefulWidget {
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> 
+class _InventoryScreenState extends State<InventoryScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'Todas las categorías';
   String _selectedLocation = 'Todas las ubicaciones';
-  
+  late Future<List<String>> _categoriesFuture;
+  final InventaryController _controller = InventaryController();
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _slideAnimation;
   late Animation<double> _rotationAnimation;
   bool _isDrawerOpen = false;
-
-  final List<String> _categories = [
-    'Todas las categorías',
-    'Eléctricas',
-    'Medición',
-    'Herramientas manuales',
-    'Equipos de seguridad',
-  ];
 
   final List<String> _locations = [
     'Todas las ubicaciones',
@@ -36,77 +32,30 @@ class _InventoryScreenState extends State<InventoryScreen>
     'Almacén 2',
   ];
 
-  final List<Map<String, dynamic>> _inventory = [
-    {
-      'id': 'HT-0024',
-      'name': 'Taladro Makita',
-      'category': 'Eléctricas',
-      'location': 'Taller A',
-      'price': 1250,
-      'available': 3,
-      'status': 'available',
-    },
-    {
-      'id': 'HT-0089',
-      'name': 'Calibrador Digital',
-      'category': 'Medición',
-      'location': 'Laboratorio',
-      'price': 3500,
-      'available': 0,
-      'status': 'damaged',
-      'damaged': 1,
-    },
-    {
-      'id': 'HT-0156',
-      'name': 'Martillo de Acero',
-      'category': 'Herramientas manuales',
-      'location': 'Taller A',
-      'price': 450,
-      'available': 5,
-      'status': 'available',
-    },
-    {
-      'id': 'HT-0234',
-      'name': 'Multímetro Digital',
-      'category': 'Eléctricas',
-      'location': 'Laboratorio',
-      'price': 850,
-      'available': 2,
-      'status': 'available',
-    },
-  ];
+  List<Map<String, dynamic>> _inventory = [];
+  late Future<List<Map<String, dynamic>>> _inventoryFuture;
 
   @override
   void initState() {
     super.initState();
+    _categoriesFuture = _controller.obtenerCategorias();
+    _inventoryFuture = _controller.obtenerInventarioHerramienta();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.7, // Más pequeña 
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 300.0, // Más desplazamiento hacia la derecha
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: -0.3, // Más rotación para mayor perspectiva
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.7).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<double>(begin: 0.0, end: 300.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _rotationAnimation = Tween<double>(begin: 0.0, end: -0.3).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -117,7 +66,6 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   void _toggleDrawer() {
-    // Debug
     if (_isDrawerOpen) {
       _animationController.reverse();
       setState(() {
@@ -132,7 +80,6 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   void _closeDrawer() {
-    // Debug
     if (_isDrawerOpen) {
       _animationController.reverse();
       setState(() {
@@ -143,13 +90,14 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   List<Map<String, dynamic>> get filteredInventory {
     return _inventory.where((item) {
-      final matchesSearch = item['name']
-          .toString()
-          .toLowerCase()
-          .contains(_searchController.text.toLowerCase());
-      final matchesCategory = _selectedCategory == 'Todas las categorías' ||
+      final matchesSearch = item['name'].toString().toLowerCase().contains(
+        _searchController.text.toLowerCase(),
+      );
+      final matchesCategory =
+          _selectedCategory == 'Todas las categorías' ||
           item['category'] == _selectedCategory;
-      final matchesLocation = _selectedLocation == 'Todas las ubicaciones' ||
+      final matchesLocation =
+          _selectedLocation == 'Todas las ubicaciones' ||
           item['location'] == _selectedLocation;
 
       return matchesSearch && matchesCategory && matchesLocation;
@@ -161,19 +109,16 @@ class _InventoryScreenState extends State<InventoryScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
+      builder: (context) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
-              // Handle del modal
+              // Barra superior
               Container(
                 margin: const EdgeInsets.only(top: 8),
                 width: 40,
@@ -183,15 +128,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
-              // Header del modal
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Filtros',
+                      "Filtros",
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -204,99 +147,103 @@ class _InventoryScreenState extends State<InventoryScreen>
                   ],
                 ),
               ),
-              
-              // Contenido de filtros
+
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Filtro de categorías
-                      const Text(
-                        'Categorías',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedCategory,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                  child: FutureBuilder<List<String>>(
+                    future: _categoriesFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Text("No se encontraron categorías");
+                      }
+
+                      List<String> categorias =
+                          snapshot.data!; // Ya incluye "Todas las categorías"
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Categorías",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          items: _categories.map((String category) {
-                            return DropdownMenuItem<String>(
-                              value: category,
-                              child: Text(category),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedCategory = newValue!;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Filtro de ubicaciones
-                      const Text(
-                        'Ubicaciones',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedLocation,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                          const SizedBox(height: 12),
+
+                          DropdownButtonFormField<String>(
+                            value: categorias.contains(_selectedCategory)
+                                ? _selectedCategory
+                                : categorias.first,
+                            items: categorias.map((cat) {
+                              return DropdownMenuItem(
+                                value: cat,
+                                child: Text(cat),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedCategory = value!);
+                            },
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
+                              ),
                             ),
                           ),
-                          items: _locations.map((String location) {
-                            return DropdownMenuItem<String>(
-                              value: location,
-                              child: Text(location),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedLocation = newValue!;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
+                          const SizedBox(height: 24),
+
+                          const Text(
+                            "Ubicaciones",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Dropdown ubicaciones
+                          DropdownButtonFormField<String>(
+                            value: _selectedLocation,
+                            items: _locations.map((loc) {
+                              return DropdownMenuItem(
+                                value: loc,
+                                child: Text(loc),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedLocation = value!);
+                            },
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
-              
-              // Botones de acción
-              Container(
+
+              // Botones inferiores
+              Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
@@ -313,7 +260,6 @@ class _InventoryScreenState extends State<InventoryScreen>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: const Text(
                           'Limpiar filtros',
@@ -329,22 +275,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          setState(() {}); // Actualiza la vista con los filtros
+                          setState(() {});
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 5, 45, 77),
+                          backgroundColor: Color.fromARGB(255, 5, 45, 77),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
                         ),
                         child: const Text(
                           'Aplicar filtros',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -362,30 +305,32 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1C1C1E),
-      body: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          return Stack(
-            children: [
-              // Sidebar (Drawer)
-              _buildSidebar(),
-              
-              // Main Content con transformación 3D
-              Transform(
+      body: Stack(
+        children: [
+          // Sidebar
+          CustomSidebar(),
+
+          // Main Content con animación
+          AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return Transform(
                 alignment: Alignment.centerLeft,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.0008) // Más perspectiva
-                  ..translate(_slideAnimation.value)
-                  ..scale(_scaleAnimation.value)
-                  ..rotateY(_rotationAnimation.value),
+                transform: Matrix4.compose(
+                  Vector3(_slideAnimation.value, 0.0, 0.0),
+                  Quaternion.axisAngle(
+                    Vector3(0, 1, 0),
+                    _rotationAnimation.value,
+                  ),
+                  Vector3.all(_scaleAnimation.value),
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(_isDrawerOpen ? 25 : 0),
                     boxShadow: _isDrawerOpen
                         ? [
                             BoxShadow(
-                              // ignore: deprecated_member_use
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withValues(alpha: 0.4),
                               blurRadius: 25,
                               spreadRadius: 8,
                               offset: const Offset(-5, 0),
@@ -398,232 +343,28 @@ class _InventoryScreenState extends State<InventoryScreen>
                     child: _buildMainContent(),
                   ),
                 ),
+              );
+            },
+          ),
+
+          // Overlay cuando el drawer está abierto
+          if (_isDrawerOpen)
+            Positioned(
+              left: 300,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              child: GestureDetector(
+                onTap: _closeDrawer,
+                child: Container(color: Colors.black.withValues(alpha: 0.05)),
               ),
-              
-              // Overlay cuando el drawer está abierto
-              if (_isDrawerOpen)
-                Positioned(
-                  left: 320, // Ajustado para el nuevo desplazamiento
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      // Debug
-                      _closeDrawer();
-                    },
-                    child: Container(
-                      // ignore: deprecated_member_use
-                      color: Colors.black.withOpacity(0.05), // Más sutil
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildSidebar() {
-    return Container(
-      width: 280,
-      color: const Color(0xFF1C1C1E),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Header del sidebar con perfil de usuario
-            Container(
-              padding: const EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 60,
-                bottom: 30,
-              ),
-              child: Column(
-                children: [
-                  // Avatar del usuario
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.red,
-                      border: Border.all(
-                        color: Colors.grey[700]!,
-                        width: 3,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Nombre del usuario
-                  const Text(
-                    'Ezequiel Velez',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  
-                  // Cargo
-                  Text(
-                    'Administrador de Inventario',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[400],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Opciones del menú
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  _buildMenuTile(
-                    icon: Icons.dashboard,
-                    title: 'Inicio',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        Navigator.of(context).pop(); // Regresa al dashboard
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.inventory,
-                    title: 'Inventario',
-                    isActive: true,
-                    onTap: () {
-                      _closeDrawer();
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.arrow_downward,
-                    title: 'Entradas',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const InputsScreen(),
-                          ),
-                        );
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.assignment,
-                    title: 'Asignaciones',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Asignaciones - Próximamente')),
-                        );
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.arrow_upward,
-                    title: 'Devoluciones',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Devoluciones - Próximamente')),
-                        );
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.refresh,
-                    title: 'Reposiciones',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Reposiciones - Próximamente')),
-                        );
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.bar_chart,
-                    title: 'Reportes',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Reportes - Próximamente')),
-                        );
-                      });
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.admin_panel_settings,
-                    title: 'Administración',
-                    isActive: false,
-                    onTap: () {
-                      _closeDrawer();
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Administración - Próximamente')),
-                        );
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            
-            // Botón de cerrar sesión
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: _buildMenuTile(
-                icon: Icons.logout,
-                title: 'Cerrar sesión',
-                isLogout: true,
-                onTap: () {
-                  _closeDrawer();
-                  Future.delayed(const Duration(milliseconds: 350), () {
-                    // ignore: use_build_context_synchronously
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/',
-                      (route) => false,
-                    );
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // El resto de tus métodos (_buildMainContent, _buildInventoryCard, _getStatusColor, _getStatusText) permanecen igual
 
   Widget _buildMainContent() {
     return Scaffold(
@@ -636,10 +377,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: _toggleDrawer,
-          icon: const Icon(
-            Icons.menu,
-            color: Colors.black,
-          ),
+          icon: const Icon(Icons.menu, color: Colors.black),
         ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -664,10 +402,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: Colors.grey[300],
-            height: 1.0,
-          ),
+          child: Container(color: Colors.grey[300], height: 1.0),
         ),
       ),
       body: Padding(
@@ -704,7 +439,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Fila de botones
                   Row(
                     children: [
@@ -714,12 +449,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Función de escáner QR próximamente'),
+                                content: Text(
+                                  'Función de escáner QR próximamente',
+                                ),
                               ),
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 6, 55, 112),
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              6,
+                              55,
+                              112,
+                            ),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -738,7 +480,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                       ),
                       const SizedBox(width: 12),
-                      
+
                       // Botón Filtrar
                       Expanded(
                         child: ElevatedButton.icon(
@@ -747,7 +489,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            side: const BorderSide(color: Color.fromARGB(255, 0, 0, 0)),
+                            side: const BorderSide(
+                              color: Color.fromARGB(255, 0, 0, 0),
+                            ),
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -770,15 +514,35 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ],
               ),
             ),
-            
+
             // Lista de inventario
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: filteredInventory.length,
-                itemBuilder: (context, index) {
-                  final item = filteredInventory[index];
-                  return _buildInventoryCard(item);
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _inventoryFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text("No hay datos"));
+                  }
+
+                  _inventory =
+                      snapshot.data!; // Guardamos datos en la lista principal
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: filteredInventory.length,
+                    itemBuilder: (context, index) {
+                      final item = filteredInventory[index];
+                      return _buildInventoryCard(item);
+                    },
+                  );
                 },
               ),
             ),
@@ -835,9 +599,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Información del producto debajo de la imagen
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,53 +617,47 @@ class _InventoryScreenState extends State<InventoryScreen>
                   const SizedBox(height: 4),
                   Text(
                     '${item['id']}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${item['category']} • ${item['location']}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Fila inferior: precio a la izquierda, botón a la derecha
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    '\$${item['price'].toString().replaceAllMapped(
-                      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                      (Match m) => '${m[1]},',
-                    )}',
+                    '\$${item['price'].toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
-                  
+
                   // Botón de acción
                   if (item['status'] == 'available')
                     ElevatedButton(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Prestar ${item['name']}'),
-                          ),
+                          SnackBar(content: Text('Prestar ${item['name']}')),
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 18, 87, 197), // Verde más atractivo
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          18,
+                          87,
+                          197,
+                        ), // Verde más atractivo
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -941,16 +699,13 @@ class _InventoryScreenState extends State<InventoryScreen>
               ),
             ],
           ),
-          
+
           // Indicador de estado en la esquina superior derecha
           Positioned(
             top: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 // ignore: deprecated_member_use
                 color: _getStatusColor(item['status']).withOpacity(0.1),
@@ -1006,67 +761,5 @@ class _InventoryScreenState extends State<InventoryScreen>
     } else {
       return 'Mantenimiento';
     }
-  }
-
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    bool isActive = false,
-    bool isLogout = false,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Debug print
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isActive 
-                  // ignore: deprecated_member_use
-                  ? Colors.red.withOpacity(0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isActive
-                  // ignore: deprecated_member_use
-                  ? Border.all(color: Colors.red.withOpacity(0.3))
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: isLogout 
-                      ? Colors.red 
-                      : isActive 
-                          ? Colors.red 
-                          : Colors.grey[400],
-                  size: 24,
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isLogout 
-                        ? Colors.red 
-                        : isActive 
-                            ? Colors.white 
-                            : Colors.grey[300],
-                    fontSize: 16,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

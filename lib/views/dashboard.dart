@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'login.dart';
+import '../components/custom_sidebar.dart';
 import 'inventory.dart';
-import 'inputs.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +14,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      drawer: const CustomSidebar(), // Sidebar desde componente
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -28,17 +28,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.menu,
-                color: Colors.grey[700],
-                size: 20,
-              ),
+              child: Icon(Icons.menu, color: Colors.grey[700], size: 20),
             ),
           ),
         ),
         title: Row(
           children: [
-            // Logo y nombre de la app
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -63,7 +58,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Indicador de estado Online
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -71,7 +65,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 8,
@@ -94,7 +87,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // Icono de notificaciones
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.all(8),
@@ -110,13 +102,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      drawer: _buildSidebar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Tarjetas de métricas principales
             _buildMetricCard(
               title: 'Stock crítico',
               value: '0',
@@ -141,8 +131,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               backgroundColor: Colors.green.shade50,
             ),
             const SizedBox(height: 32),
-            
-            // Sección de acciones rápidas
             const Text(
               'Acciones rápidas',
               style: TextStyle(
@@ -216,246 +204,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Acción rápida')),
-          );
-        },
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Drawer(
-      backgroundColor: const Color(0xFF1C1C1E), // Fondo oscuro
-      child: Column(
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header del sidebar con perfil de usuario
-          Container(
-            padding: const EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 60,
-              bottom: 30,
-            ),
-            child: Column(
-              children: [
-                // Avatar del usuario
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.red,
-                    border: Border.all(
-                      color: Colors.grey[700]!,
-                      width: 3,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Nombre del usuario
-                const Text(
-                  'Ezequiel Velez',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                
-                // Cargo
-                Text(
-                  'Administrador de Inventario',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[400],
-                  ),
-                ),
-              ],
-            ),
+          FloatingActionButton(
+            heroTag: "btn2",
+            onPressed: () {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Acción rápida')));
+            },
+            backgroundColor: Colors.green,
+            child: const Icon(Icons.add, color: Colors.white),
           ),
-          
-                    
-          // Opciones del menú
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                _buildMenuTile(
-                  icon: Icons.dashboard,
-                  title: 'Inicio',
-                  isActive: true,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: "btn1",
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const InventoryScreen(),
                 ),
-                _buildMenuTile(
-                  icon: Icons.inventory,
-                  title: 'Inventario',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const InventoryScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.arrow_downward,
-                  title: 'Entradas',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const InputsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.assignment,
-                  title: 'Asignaciones',
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Asignaciones')),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.arrow_upward,
-                  title: 'Devoluciones',
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Devoluciones')),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.refresh,
-                  title: 'Reposiciones',
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reposiciones')),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.bar_chart,
-                  title: 'Reportes',
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reportes')),
-                    );
-                  },
-                ),
-                _buildMenuTile(
-                  icon: Icons.admin_panel_settings,
-                  title: 'Administración',
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Administración')),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          
-          // Botón de cerrar sesión
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: _buildMenuTile(
-              icon: Icons.logout,
-              title: 'Cerrar sesión',
-              isLogout: true,
-              onTap: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                  (route) => false,
-                );
-              },
-            ),
+              );
+            },
+            backgroundColor: Colors.blue,
+            child: const Icon(Icons.inventory, color: Colors.white),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    bool isActive = false,
-    bool isLogout = false,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isActive 
-                  // ignore: deprecated_member_use
-                  ? Colors.red.withOpacity(0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isActive
-                  // ignore: deprecated_member_use
-                  ? Border.all(color: Colors.red.withOpacity(0.3))
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: isLogout 
-                      ? Colors.red 
-                      : isActive 
-                          ? Colors.red 
-                          : Colors.grey[400],
-                  size: 24,
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isLogout 
-                        ? Colors.red 
-                        : isActive 
-                            ? Colors.white 
-                            : Colors.grey[300],
-                    fontSize: 16,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -475,8 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            // ignore: deprecated_member_use
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -490,11 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: backgroundColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -541,8 +311,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              // ignore: deprecated_member_use
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -553,15 +322,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                // ignore: deprecated_member_use
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 8),
             Text(
