@@ -1,6 +1,118 @@
 -- 1. Habilitar extensión pgcrypto para generación de UUIDs
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- 1.5. Sistema de Roles Múltiples (RBAC)
+-- Crear tabla de Roles
+CREATE TABLE IF NOT EXISTS public.roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre TEXT NOT NULL UNIQUE,
+    descripcion TEXT,
+    fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Insertar roles base
+INSERT INTO public.roles (nombre, descripcion)
+VALUES 
+    ('ADMIN', 'Acceso total y administración de todo el sistema'),
+    ('OPERADOR', 'Permiso para registrar movimientos y ver catálogo'),
+    ('VISITANTE', 'Acceso de solo lectura al catálogo')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Crear tabla de Perfiles de Usuario
+CREATE TABLE IF NOT EXISTS public.perfiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    nombre_completo TEXT,
+    correo TEXT,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Crear tabla pivote muchos a muchos para Usuario-Roles
+CREATE TABLE IF NOT EXISTS public.usuario_roles (
+    usuario_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES public.roles(id) ON DELETE CASCADE,
+    fecha_asignacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    PRIMARY KEY (usuario_id, role_id)
+);
+
+-- Función para verificar si un usuario tiene un rol determinado (bypass de RLS para evitar recursión)
+CREATE OR REPLACE FUNCTION public.has_role(p_usuario_id UUID, p_role_nombre TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 
+        FROM public.usuario_roles ur
+        JOIN public.roles r ON ur.role_id = r.id
+        WHERE ur.usuario_id = p_usuario_id AND r.nombre = p_role_nombre
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Función para obtener todos los roles asignados a un usuario
+CREATE OR REPLACE FUNCTION public.get_user_roles(p_usuario_id UUID)
+RETURNS TEXT[] AS $$
+BEGIN
+    RETURN ARRAY(
+        SELECT r.nombre 
+        FROM public.usuario_roles ur
+        JOIN public.roles r ON ur.role_id = r.id
+        WHERE ur.usuario_id = p_usuario_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger para manejar la creación automática de perfil y roles
+CREATE OR REPLACE FUNCTION public.fn_handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_role_id UUID;
+BEGIN
+    -- Crear el perfil del usuario
+    INSERT INTO public.perfiles (id, nombre_completo, correo)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'nombre_completo', NEW.raw_user_meta_data->>'name', 'Usuario Nuevo'),
+        NEW.email
+    );
+
+    -- Por defecto, a todos los usuarios creados les asignaremos ADMIN en esta fase inicial
+    -- de acuerdo a la instrucción de mantener todo como admin para el usuario actual.
+    -- En el futuro se puede cambiar para asignar 'VISITANTE' u otro según convenga.
+    SELECT id INTO v_role_id FROM public.roles WHERE nombre = 'ADMIN';
+    
+    IF v_role_id IS NOT NULL THEN
+        INSERT INTO public.usuario_roles (usuario_id, role_id)
+        VALUES (NEW.id, v_role_id)
+        ON CONFLICT DO NOTHING;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Crear trigger sobre auth.users
+CREATE OR REPLACE TRIGGER trg_on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_handle_new_user();
+
+-- Sincronizar perfiles y roles para usuarios preexistentes en auth.users
+INSERT INTO public.perfiles (id, nombre_completo, correo)
+SELECT 
+    id, 
+    COALESCE(raw_user_meta_data->>'nombre_completo', raw_user_meta_data->>'name', 'Usuario Existente'), 
+    email 
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+-- Asignar rol de ADMIN a todos los usuarios preexistentes
+INSERT INTO public.usuario_roles (usuario_id, role_id)
+SELECT 
+    u.id, 
+    (SELECT id FROM public.roles WHERE nombre = 'ADMIN')
+FROM auth.users u
+ON CONFLICT (u.id) DO NOTHING;
+
+
 -- 2. Crear tabla de Ubicaciones
 CREATE TABLE IF NOT EXISTS public.ubicaciones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -43,6 +155,16 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
 );
 
 -- 5. Trigger PostgreSQL para actualizar Stock y Costo Promedio Ponderado
+CREATE OR REPLACE FUNCTION public.fn_actualizar_stock_y_costo()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_stock_actual INT;
+    v_costo_actual NUMERIC(12,2);
+    v_nuevo_stock INT;
+    v_nuevo_costo NUMERIC(12,2);
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION public.fn_actualizar_stock_y_costo()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -108,28 +230,30 @@ AFTER INSERT ON public.movimientos
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_actualizar_stock_y_costo();
 
+
 -- 6. Configurar RLS (Row Level Security)
 ALTER TABLE public.ubicaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.herramientas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.movimientos ENABLE ROW LEVEL SECURITY;
 
--- Políticas para ubicaciones: Lectura pública, escritura solo autenticados
+-- Políticas para ubicaciones: Lectura pública, escritura reservada a administradores (rol ADMIN)
 CREATE POLICY "Lectura pública de ubicaciones" ON public.ubicaciones
     FOR SELECT TO public USING (true);
 
 CREATE POLICY "Escritura de ubicaciones reservada a administradores" ON public.ubicaciones
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
 
--- Políticas para herramientas: Lectura pública (para consulta web de QRs), escritura solo autenticados
+-- Políticas para herramientas: Lectura pública (para consulta web de QRs), escritura reservada a administradores
 CREATE POLICY "Lectura pública de herramientas" ON public.herramientas
     FOR SELECT TO public USING (true);
 
 CREATE POLICY "Escritura de herramientas reservada a administradores" ON public.herramientas
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
 
--- Políticas para movimientos: Lectura y escritura exclusiva de administradores autenticados
+-- Políticas para movimientos: Acceso total para administradores
 CREATE POLICY "Acceso total a movimientos para administradores" ON public.movimientos
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
+
 
 -- 7. Crear Buckets en Supabase Storage
 INSERT INTO storage.buckets (id, name, public)
@@ -143,11 +267,11 @@ CREATE POLICY "Acceso público de lectura a fotos" ON storage.objects
     FOR SELECT USING (bucket_id = 'fotos_herramientas');
 
 CREATE POLICY "Carga de fotos reservada a administradores" ON storage.objects
-    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'fotos_herramientas');
+    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'fotos_herramientas' AND public.has_role(auth.uid(), 'ADMIN'));
 
 -- Políticas de Storage para vales_pdf
 CREATE POLICY "Acceso público de lectura a vales" ON storage.objects
     FOR SELECT USING (bucket_id = 'vales_pdf');
 
 CREATE POLICY "Carga de vales reservada a administradores" ON storage.objects
-    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'vales_pdf');
+    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'vales_pdf' AND public.has_role(auth.uid(), 'ADMIN'));
