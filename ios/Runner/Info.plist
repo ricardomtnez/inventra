@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Esta aplicación requiere acceso a la cámara para escanear los códigos QR de las herramientas y capturar fotos de los equipos para el catálogo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Esta aplicación requiere acceso a la biblioteca de fotos para seleccionar imágenes de las herramientas.</string>
 </dict>
 </plist>

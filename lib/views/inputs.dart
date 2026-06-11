@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 class InputsScreen extends StatefulWidget {
   const InputsScreen({super.key});
@@ -347,9 +348,9 @@ class _InputsScreenState extends State<InputsScreen>
                 alignment: Alignment.centerLeft,
                 transform: Matrix4.identity()
                   ..setEntry(3, 2, 0.001) // perspectiva
-                  ..translate(_slideAnimation.value, 0.0, 0.0) // solo X
+                  ..translateByVector3(Vector3(_slideAnimation.value, 0.0, 0.0)) // solo X
                   ..rotateY(_rotationAnimation.value) // primero rotación
-                  ..scale(_scaleAnimation.value), // después escala
+                  ..scaleByVector3(Vector3(_scaleAnimation.value, _scaleAnimation.value, 1.0)), // después escala
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(_isDrawerOpen ? 25 : 0),
@@ -577,11 +578,9 @@ class _InputsScreenState extends State<InputsScreen>
                 isLogout: true,
                 onTap: () {
                   _closeDrawer();
+                  final navigator = Navigator.of(context);
                   Future.delayed(const Duration(milliseconds: 350), () {
-                    // ignore: use_build_context_synchronously
-                    Navigator.of(
-                      context,
-                    ).pushNamedAndRemoveUntil('/', (route) => false);
+                    navigator.pushNamedAndRemoveUntil('/', (route) => false);
                   });
                 },
               ),
@@ -1104,8 +1103,9 @@ class _InputsScreenState extends State<InputsScreen>
                               onPressed: () {
                                 setState(() {
                                   final realIndex = _entradas.indexOf(entrada);
-                                  if (realIndex >= 0)
+                                  if (realIndex >= 0) {
                                     _entradas.removeAt(realIndex);
+                                  }
                                 });
                                 Navigator.of(ctx).pop();
                               },
@@ -1962,8 +1962,9 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: herramientaController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null)
+                              if (value.isNotEmpty && error != null) {
                                 herramientaError.value = null;
+                              }
                             },
                             decoration: InputDecoration(
                               hintText: 'Ej: Taladro Makita',
@@ -1996,8 +1997,9 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: codigoController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null)
+                              if (value.isNotEmpty && error != null) {
                                 codigoError.value = null;
+                              }
                             },
                             decoration: InputDecoration(
                               hintText: 'Ej: HT-0024',
@@ -2031,8 +2033,9 @@ class _InputsScreenState extends State<InputsScreen>
                             controller: cantidadController,
                             keyboardType: TextInputType.number,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null)
+                              if (value.isNotEmpty && error != null) {
                                 cantidadError.value = null;
+                              }
                             },
                             decoration: InputDecoration(
                               hintText: '0',
@@ -2065,8 +2068,9 @@ class _InputsScreenState extends State<InputsScreen>
                           return TextField(
                             controller: lugarController,
                             onChanged: (value) {
-                              if (value.isNotEmpty && error != null)
+                              if (value.isNotEmpty && error != null) {
                                 lugarError.value = null;
+                              }
                             },
                             decoration: InputDecoration(
                               hintText: 'Ej: Almacén Central',
