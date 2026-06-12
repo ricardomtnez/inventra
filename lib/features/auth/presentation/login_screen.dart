@@ -93,34 +93,30 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo Oficial INVENTRA
+                // Logo Oficial INVENTRA (la imagen ya incluye el texto "INVENTRA")
                 Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color: colors.primary.withValues(alpha: 0.4),
-                        blurRadius: 32,
-                        spreadRadius: 4,
-                        offset: const Offset(0, 8),
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.5),
+                        blurRadius: 40,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 10),
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(32),
                     child: Image.asset(
                       'assets/images/inventra_logo.png',
-                      width: 120,
-                      height: 120,
+                      width: 180,
+                      height: 180,
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'INVENTRA',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2),
-                ),
+                const SizedBox(height: 20),
                 const Text(
                   'Control de Inventario de Herramientas',
                   style: TextStyle(color: Colors.grey, fontSize: 14),
