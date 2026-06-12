@@ -93,23 +93,28 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo Premium
+                // Logo Oficial INVENTRA
                 Container(
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [colors.primary, colors.primaryContainer],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: colors.primary.withValues(alpha: 0.3),
-                        blurRadius: 20,
+                        color: colors.primary.withValues(alpha: 0.4),
+                        blurRadius: 32,
+                        spreadRadius: 4,
                         offset: const Offset(0, 8),
-                      )
+                      ),
                     ],
                   ),
-                  child: const Icon(Icons.handyman_rounded, size: 64, color: Colors.white),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: Image.asset(
+                      'assets/images/inventra_logo.png',
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
