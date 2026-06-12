@@ -6,5 +6,6 @@ class AppConfig {
 
   // ─── Vista Pública Web (QR) ──────────────────────────────────────────────────
   // Actualizar esta URL una vez que el proyecto esté desplegado en Vercel.
-  static const String publicWebUrl = 'https://inventra.vercel.app/herramienta';
+  static const String publicWebUrl = 'https://inventra-wine.vercel.app/herramienta';
 }
+

@@ -14,6 +14,9 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
   final _descController = TextEditingController();
+  final _marcaController = TextEditingController();
+  final _modeloController = TextEditingController();
+  final _nSerieController = TextEditingController();
   final _stockController = TextEditingController(text: '0');
   final _costoController = TextEditingController(text: '0.00');
   
@@ -101,7 +104,11 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
         ubicacionId: _selectedUbicacion!,
         stockInicial: int.tryParse(_stockController.text) ?? 0,
         costoUnitario: double.tryParse(_costoController.text) ?? 0.00,
-        especificaciones: {},
+        especificaciones: {
+          'marca': _marcaController.text.trim(),
+          'modelo': _modeloController.text.trim(),
+          'n_serie': _nSerieController.text.trim(),
+        },
       );
 
       if (mounted) {
@@ -123,106 +130,132 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Registrar Herramienta')),
-      body: _isSaving
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Visualización de Foto
-                    Center(
-                      child: GestureDetector(
-                        onTap: _mostrarOpcionesImagen,
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade400),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Registrar Herramienta')),
+        body: _isSaving
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Visualización de Foto
+                      Center(
+                        child: GestureDetector(
+                          onTap: _mostrarOpcionesImagen,
+                          child: Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade400),
+                            ),
+                            child: _imageFile != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                  )
+                                : const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.camera_alt_outlined, size: 40, color: Colors.grey),
+                                      SizedBox(height: 8),
+                                      Text('Cargar Imagen', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                    ],
+                                  ),
                           ),
-                          child: _imageFile != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: Image.file(_imageFile!, fit: BoxFit.cover),
-                                )
-                              : const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.camera_alt_outlined, size: 40, color: Colors.grey),
-                                    SizedBox(height: 8),
-                                    Text('Cargar Imagen', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                  ],
-                                ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nombreController,
-                      decoration: const InputDecoration(labelText: 'Nombre de la Herramienta'),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descController,
-                      decoration: const InputDecoration(labelText: 'Descripción'),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de Ubicación Física
-                    DropdownButtonFormField<String>(
-                      hint: const Text('Ubicación Física'),
-                      initialValue: _selectedUbicacion,
-                      items: _ubicaciones.map((u) {
-                        return DropdownMenuItem<String>(
-                          value: u['id'],
-                          child: Text(u['nombre']),
-                        );
-                      }).toList(),
-                      onChanged: (v) => setState(() => _selectedUbicacion = v),
-                      validator: (v) => v == null ? 'Seleccione ubicación' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _stockController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Stock Inicial'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _costoController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Costo Unitario (\$)'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _guardarHerramienta,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _nombreController,
+                        decoration: const InputDecoration(labelText: 'Nombre de la Herramienta'),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
                       ),
-                      child: const Text('Registrar en Sistema', style: TextStyle(fontSize: 16)),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descController,
+                        decoration: const InputDecoration(labelText: 'Descripción'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _marcaController,
+                              decoration: const InputDecoration(labelText: 'Marca'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _modeloController,
+                              decoration: const InputDecoration(labelText: 'Modelo'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _nSerieController,
+                        decoration: const InputDecoration(labelText: 'Número de Serie'),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Dropdown de Ubicación Física
+                      DropdownButtonFormField<String>(
+                        hint: const Text('Ubicación Física'),
+                        initialValue: _selectedUbicacion,
+                        items: _ubicaciones.map((u) {
+                          return DropdownMenuItem<String>(
+                            value: u['id'],
+                            child: Text(u['nombre']),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() => _selectedUbicacion = v),
+                        validator: (v) => v == null ? 'Seleccione ubicación' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _stockController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Stock Inicial'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _costoController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(labelText: 'Costo Unitario (\$)'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                        onPressed: _guardarHerramienta,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Registrar en Sistema', style: TextStyle(fontSize: 16)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }
