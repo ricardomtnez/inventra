@@ -1,8 +1,8 @@
 class AppConfig {
   // ─── Supabase ───────────────────────────────────────────────────────────────
-  static const String supabaseUrl = 'https://tfoivpzklblehnwxxhmt.supabase.co';
+  static const String supabaseUrl = 'https://nnwtkhncjlalwzywgida.supabase.co';
   static const String supabaseAnonKey =
-      'sb_publishable_PauDII9yJ_ZsdweBvfKJqw_phhO0hHR';
+      'sb_publishable_Zv4F39afAj0P7YDp_0L9EA_ltvvX5NI';
 
   // ─── Vista Pública Web (QR) ──────────────────────────────────────────────────
   // Actualizar esta URL una vez que el proyecto esté desplegado en Vercel.

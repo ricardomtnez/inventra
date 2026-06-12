@@ -102,14 +102,8 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
 
     try {
       final client = SupabaseClientHelper.client;
-      final filePrefix = DateTime.now().millisecondsSinceEpoch;
 
-      // 1. Subir firma digital
-      final pathFirma = 'firmas/$filePrefix.png';
-      await client.storage.from('vales_pdf').uploadBinary(pathFirma, _firmaBytes!);
-      final firmaUrl = client.storage.from('vales_pdf').getPublicUrl(pathFirma);
-
-      // 2. Registrar Movimiento en Base de Datos primero (para obtener el folio generado automáticamente)
+      // Registrar Movimiento en Base de Datos primero (para obtener el folio generado automáticamente)
       final insertRes = await client.from('movimientos').insert({
         'herramienta_id': widget.herramienta['id'],
         'tipo': _tipo,
@@ -118,8 +112,6 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         'precio_unitario': double.tryParse(_priceController.text) ?? 0.00,
         'responsable_nombre': _responsableController.text.trim(),
         'matricula': _matriculaController.text.trim(),
-        'firma_url': firmaUrl,
-        'vale_pdf_url': null, // No se aloja en Supabase Storage
       }).select('folio, fecha').single();
 
       final int folio = insertRes['folio'] ?? 0;

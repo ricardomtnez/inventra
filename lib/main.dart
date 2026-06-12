@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/theme/app_theme.dart';
 import 'core/supabase/supabase_client.dart';
-import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/splash_screen.dart';
 import 'features/web_public_view/presentation/public_tool_detail_screen.dart';
 
 void main() async {
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget homeScreen = const LoginScreen();
+    Widget homeScreen = const SplashScreen();
 
     // Detección nativa de parámetros en la URL (Despliegue Vercel / Web)
     if (kIsWeb) {

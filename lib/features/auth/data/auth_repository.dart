@@ -12,9 +12,7 @@ class AuthRepository {
 
   List<String> get assignedRoles => _assignedRoles;
 
-  Future<AuthResponse> login(String username, String password) async {
-    // Si no es un correo electrónico, agregamos el dominio automático
-    final email = username.contains('@') ? username : '$username@inventra-uni.com';
+  Future<AuthResponse> login(String email, String password) async {
     final response = await _client.auth.signInWithPassword(
       email: email,
       password: password,

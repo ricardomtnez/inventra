@@ -110,7 +110,7 @@ SELECT
     u.id, 
     (SELECT id FROM public.roles WHERE nombre = 'ADMIN')
 FROM auth.users u
-ON CONFLICT (u.id) DO NOTHING;
+ON CONFLICT (usuario_id, role_id) DO NOTHING;
 
 
 -- 2. Crear tabla de Ubicaciones
@@ -150,21 +150,10 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
     precio_unitario NUMERIC(12,2) DEFAULT 0.00 CHECK (precio_unitario >= 0),
     responsable_nombre TEXT,
     matricula TEXT,
-    firma_url TEXT,
-    vale_pdf_url TEXT,
     fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- 5. Trigger PostgreSQL para actualizar Stock y Costo Promedio Ponderado
-CREATE OR REPLACE FUNCTION public.fn_actualizar_stock_y_costo()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_stock_actual INT;
-    v_costo_actual NUMERIC(12,2);
-    v_nuevo_stock INT;
-    v_nuevo_costo NUMERIC(12,2);
-END;
-$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION public.fn_actualizar_stock_y_costo()
 RETURNS TRIGGER AS $$
@@ -236,6 +225,9 @@ EXECUTE FUNCTION public.fn_actualizar_stock_y_costo();
 ALTER TABLE public.ubicaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.herramientas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.movimientos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuario_roles ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para ubicaciones: Lectura pública, escritura reservada a administradores (rol ADMIN)
 CREATE POLICY "Lectura pública de ubicaciones" ON public.ubicaciones
@@ -255,12 +247,32 @@ CREATE POLICY "Escritura de herramientas reservada a administradores" ON public.
 CREATE POLICY "Acceso total a movimientos para administradores" ON public.movimientos
     FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
 
+-- Políticas para roles: Lectura para usuarios autenticados, escritura para administradores
+CREATE POLICY "Lectura de roles para usuarios autenticados" ON public.roles
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Escritura de roles reservada a administradores" ON public.roles
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
+
+-- Políticas para perfiles: Usuarios pueden ver/editar su propio perfil, administradores pueden ver todos
+CREATE POLICY "Lectura de perfiles propios y administradores" ON public.perfiles
+    FOR SELECT TO authenticated USING (auth.uid() = id OR public.has_role(auth.uid(), 'ADMIN'));
+
+CREATE POLICY "Actualización de perfil propio" ON public.perfiles
+    FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- Políticas para usuario_roles: Usuarios pueden ver sus propios roles, administradores control total
+CREATE POLICY "Lectura de roles propios y administradores" ON public.usuario_roles
+    FOR SELECT TO authenticated USING (usuario_id = auth.uid() OR public.has_role(auth.uid(), 'ADMIN'));
+
+CREATE POLICY "Escritura de roles de usuario reservada a administradores" ON public.usuario_roles
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
+
 
 -- 7. Crear Buckets en Supabase Storage
 INSERT INTO storage.buckets (id, name, public)
 VALUES 
-    ('fotos_herramientas', 'fotos_herramientas', true),
-    ('vales_pdf', 'vales_pdf', true)
+    ('fotos_herramientas', 'fotos_herramientas', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Políticas de Storage para fotos_herramientas
@@ -270,9 +282,19 @@ CREATE POLICY "Acceso público de lectura a fotos" ON storage.objects
 CREATE POLICY "Carga de fotos reservada a administradores" ON storage.objects
     FOR INSERT TO authenticated WITH CHECK (bucket_id = 'fotos_herramientas' AND public.has_role(auth.uid(), 'ADMIN'));
 
--- Políticas de Storage para vales_pdf
-CREATE POLICY "Acceso público de lectura a vales" ON storage.objects
-    FOR SELECT USING (bucket_id = 'vales_pdf');
+-- 8. Asignación explícita de Administrador Principal (Fallback)
+INSERT INTO public.perfiles (id, nombre_completo, correo)
+VALUES (
+    'e6b39b08-733d-46e0-ba34-460c274c8e7f', 
+    'Mantenimiento UT Oriental', 
+    'utoriental.mantenimiento@outlook.com'
+)
+ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Carga de vales reservada a administradores" ON storage.objects
-    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'vales_pdf' AND public.has_role(auth.uid(), 'ADMIN'));
+INSERT INTO public.usuario_roles (usuario_id, role_id)
+VALUES (
+    'e6b39b08-733d-46e0-ba34-460c274c8e7f', 
+    (SELECT id FROM public.roles WHERE nombre = 'ADMIN')
+)
+ON CONFLICT (usuario_id, role_id) DO NOTHING;
+
