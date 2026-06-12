@@ -28,17 +28,27 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
   
   String? _selectedUbicacion;
   List<Map<String, dynamic>> _ubicaciones = [];
+  String? _selectedUnidadMedida;
+  List<Map<String, dynamic>> _unidadesMedida = [];
 
   @override
   void initState() {
     super.initState();
     _cargarUbicaciones();
+    _cargarUnidadesMedida();
   }
 
   Future<void> _cargarUbicaciones() async {
     final list = await _repository.obtenerUbicaciones();
     setState(() {
       _ubicaciones = list;
+    });
+  }
+
+  Future<void> _cargarUnidadesMedida() async {
+    final list = await _repository.obtenerUnidadesMedida();
+    setState(() {
+      _unidadesMedida = list;
     });
   }
 
@@ -59,6 +69,7 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
   }
 
   void _mostrarOpcionesImagen() {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -87,7 +98,7 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
   }
 
   Future<void> _guardarHerramienta() async {
-    if (!_formKey.currentState!.validate() || _selectedUbicacion == null) return;
+    if (!_formKey.currentState!.validate() || _selectedUbicacion == null || _selectedUnidadMedida == null) return;
     setState(() => _isSaving = true);
 
     try {
@@ -102,6 +113,7 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
         descripcion: _descController.text.trim(),
         fotoUrl: fotoUrl,
         ubicacionId: _selectedUbicacion!,
+        unidadMedidaId: _selectedUnidadMedida!,
         stockInicial: int.tryParse(_stockController.text) ?? 0,
         costoUnitario: double.tryParse(_costoController.text) ?? 0.00,
         especificaciones: {
@@ -220,6 +232,21 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                         }).toList(),
                         onChanged: (v) => setState(() => _selectedUbicacion = v),
                         validator: (v) => v == null ? 'Seleccione ubicación' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Dropdown de Unidad de Medida
+                      DropdownButtonFormField<String>(
+                        hint: const Text('Unidad de Medida'),
+                        initialValue: _selectedUnidadMedida,
+                        items: _unidadesMedida.map((u) {
+                          return DropdownMenuItem<String>(
+                            value: u['id'],
+                            child: Text('${u['nombre']} (${u['abreviatura']})'),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() => _selectedUnidadMedida = v),
+                        validator: (v) => v == null ? 'Seleccione unidad de medida' : null,
                       ),
                       const SizedBox(height: 16),
                       

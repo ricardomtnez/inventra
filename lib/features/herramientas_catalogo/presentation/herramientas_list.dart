@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/offline_banner.dart';
 import '../data/herramientas_repository.dart';
 import 'herramientas_form.dart';
 import 'qr_print_selector.dart';
@@ -24,7 +25,9 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   }
 
   Future<void> _cargarHerramientas() async {
-    setState(() => _isLoading = true);
+    if (_herramientas.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
       final list = await _repository.obtenerHerramientas();
       setState(() {
@@ -60,37 +63,46 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                       ),
                     ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _cargarHerramientas,
-          ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _herramientas.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('No hay herramientas registradas en el catálogo.', style: TextStyle(color: Colors.grey)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final res = await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HerramientasFormScreen()),
-                          );
-                          if (res == true) _cargarHerramientas();
-                        },
-                        child: const Text('Registrar Primera Herramienta'),
-                      )
-                    ],
-                  ),
-                )
-              : Center(
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(
+            child: _isLoading && _herramientas.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _cargarHerramientas,
+                    child: _herramientas.isEmpty
+                        ? ListView(
+                            children: [
+                              SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.7,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                                      const SizedBox(height: 16),
+                                      const Text('No hay herramientas registradas en el catálogo.', style: TextStyle(color: Colors.grey)),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          final res = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (context) => const HerramientasFormScreen()),
+                                          );
+                                          if (res == true) _cargarHerramientas();
+                                        },
+                                        child: const Text('Registrar Primera Herramienta'),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Center(
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: ListView.builder(
@@ -102,95 +114,91 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              children: [
-                                // Foto
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: h['foto_url'] != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: h['foto_url'],
-                                          width: 64,
-                                          height: 64,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _mostrarDetalleHerramienta(h),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                children: [
+                                  // Foto
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: h['foto_url'] != null
+                                        ? CachedNetworkImage(
+                                            imageUrl: h['foto_url'],
+                                            width: 64,
+                                            height: 64,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                              width: 64,
+                                              height: 64,
+                                              color: Colors.grey.shade200,
+                                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                            ),
+                                            errorWidget: (_, __, ___) => Container(
+                                              width: 64,
+                                              height: 64,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                            ),
+                                          )
+                                        : Container(
                                             width: 64,
                                             height: 64,
                                             color: Colors.grey.shade200,
-                                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                            child: const Icon(Icons.handyman_rounded, color: Colors.grey),
                                           ),
-                                          errorWidget: (_, __, ___) => Container(
-                                            width: 64,
-                                            height: 64,
-                                            color: Colors.grey.shade200,
-                                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
-                                          ),
-                                        )
-                                      : Container(
-                                          width: 64,
-                                          height: 64,
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(Icons.handyman_rounded, color: Colors.grey),
-                                        ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Detalles
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        h['nombre'],
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
-                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              color: stock > 0 ? Colors.green : Colors.red,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            stock > 0 ? '$stock disponibles' : 'Sin stock',
-                                            style: TextStyle(
-                                              color: stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
                                   ),
-                                ),
-                                // Botón de Transacción
-                                IconButton(
-                                  icon: const Icon(Icons.swap_horiz_rounded),
-                                  color: colors.primary,
-                                  tooltip: 'Nueva Transacción',
-                                  onPressed: () async {
-                                    final res = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => RegistrarMovimientoScreen(herramienta: h),
-                                      ),
-                                    );
-                                    if (res == true) _cargarHerramientas();
-                                  },
-                                ),
-                              ],
+                                  const SizedBox(width: 16),
+                                  // Detalles
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          h['nombre'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
+                                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: stock > 0 ? Colors.green : Colors.red,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              stock > 0 ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disponibles' : 'Sin stock',
+                                              style: TextStyle(
+                                                color: stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Botón de Transacción
+                                  IconButton(
+                                    icon: const Icon(Icons.swap_horiz_rounded),
+                                    color: colors.primary,
+                                    tooltip: 'Nueva Transacción',
+                                    onPressed: () => _mostrarOpcionesMovimiento(context, h, _cargarHerramientas),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -198,6 +206,10 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     ),
                   ),
                 ),
+              ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final res = await Navigator.push(
@@ -207,6 +219,431 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
           if (res == true) _cargarHerramientas();
         },
         child: const Icon(Icons.add_rounded),
+      ),
+    );
+  }
+
+  void _mostrarDetalleHerramienta(Map<String, dynamic> h) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final especificaciones = h['especificaciones'] as Map<String, dynamic>? ?? {};
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 15,
+              spreadRadius: 2,
+            )
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 50,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: h['foto_url'] != null
+                      ? CachedNetworkImage(
+                          imageUrl: h['foto_url'],
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.grey.shade200,
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 32),
+                          ),
+                        )
+                      : Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.handyman_rounded, color: Colors.grey, size: 32),
+                        ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        h['nombre'],
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
+                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            const Divider(),
+            const SizedBox(height: 10),
+            const Text('Especificaciones', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 10),
+            _buildSpecRow('Marca:', especificaciones['marca'] ?? 'Sin marca'),
+            _buildSpecRow('Modelo:', especificaciones['modelo'] ?? 'Sin modelo'),
+            _buildSpecRow('Número de Serie:', especificaciones['n_serie'] ?? 'Sin número de serie'),
+            if (h['descripcion'] != null && h['descripcion'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                h['descripcion'],
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            const Divider(),
+            const SizedBox(height: 10),
+            const Text('Resumen de Inventario y Valoración', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 12),
+
+            FutureBuilder<Map<String, int>>(
+              future: _repository.obtenerEstadisticasMovimientos(h['id']),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: Text(
+                      'Error al cargar métricas: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                    ),
+                  );
+                }
+
+                final stats = snapshot.data!;
+                final stock = h['stock'] as int;
+                final prestadas = stats['prestadas'] ?? 0;
+                final perdidas = stats['perdidas'] ?? 0;
+                final descompostura = stats['descompostura'] ?? 0;
+                final costoPromedio = double.tryParse(h['costo_promedio'].toString()) ?? 0.0;
+                final valorTotal = stock * costoPromedio;
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            title: 'Disponibles',
+                            value: '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            icon: Icons.check_circle_outline_rounded,
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            title: 'Prestados',
+                            value: '$prestadas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            icon: Icons.handshake_outlined,
+                            color: Colors.amber.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            title: 'Bajas Pérdida',
+                            value: '$perdidas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            icon: Icons.search_off_rounded,
+                            color: Colors.red.shade400,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            title: 'Bajas Daño',
+                            value: '$descompostura ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            icon: Icons.build_circle_outlined,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.primary.withValues(alpha: 0.15)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Valor Total Inventariado', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const SizedBox(height: 2),
+                              Text(
+                                '\$${valorTotal.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colors.primary),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text('Costo Promedio', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              const SizedBox(height: 2),
+                              Text(
+                                '\$${costoPromedio.toStringAsFixed(2)} c/u',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarOpcionesMovimiento(BuildContext context, Map<String, dynamic> herramienta, VoidCallback onSuccess) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Registrar Transacción',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Selecciona el tipo de movimiento para "${herramienta['nombre']}"',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _irARegistrar(context, herramienta, 'ENTRADA', onSuccess);
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        color: Colors.green.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.login_rounded, color: Colors.green, size: 32),
+                          SizedBox(height: 12),
+                          Text(
+                            'ENTRADA',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Devolución / Stock',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _irARegistrar(context, herramienta, 'SALIDA', onSuccess);
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                        color: colors.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.logout_rounded, color: colors.primary, size: 32),
+                          const SizedBox(height: 12),
+                          Text(
+                            'SALIDA / PRÉSTAMO',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colors.primary,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Préstamo / Baja',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _irARegistrar(BuildContext context, Map<String, dynamic> herramienta, String tipo, VoidCallback onSuccess) async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RegistrarMovimientoScreen(
+          herramienta: herramienta,
+          tipoInicial: tipo,
+        ),
+      ),
+    );
+    if (res == true) onSuccess();
+  }
+
+  Widget _buildSpecRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey, fontSize: 13)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({required String title, required String value, required IconData icon, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
       ),
     );
   }

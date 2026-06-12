@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/theme/app_theme.dart';
 import 'core/supabase/supabase_client.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/services/sync_service.dart';
 import 'features/auth/presentation/splash_screen.dart';
 import 'features/web_public_view/presentation/public_tool_detail_screen.dart';
 
@@ -15,6 +17,10 @@ void main() async {
   
   // Inicialización de Supabase
   await SupabaseClientHelper.initialize();
+  
+  // Inicialización de servicios de conectividad y sincronización offline
+  ConnectivityService().initialize();
+  await SyncService().initialize();
   
   runApp(const MyApp());
 }

@@ -3,7 +3,9 @@ import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../herramientas_catalogo/presentation/herramientas_list.dart';
 import '../../movimientos_qr/presentation/scanner_view.dart';
+import '../../movimientos_qr/presentation/historial_movimientos_screen.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/widgets/offline_banner.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,10 +26,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _cargarMetricas();
   }
 
-  Future<void> _cargarMetricas() async {
+  Future<void> _cargarMetricas({bool background = false}) async {
+    if (_totalHerramientas == 0 && !background) {
+      setState(() => _isLoading = true);
+    }
     try {
       final client = SupabaseClientHelper.client;
-      
+
       // 1. Obtener total de herramientas
       final countRes = await client.from('herramientas').select('stock');
       int total = 0;
@@ -36,23 +41,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       // 2. Obtener préstamos activos (Movimientos de salida por préstamo - devoluciones de préstamo)
-      final movimientos = await client.from('movimientos').select('tipo, motivo, cantidad');
+      final movimientos = await client
+          .from('movimientos')
+          .select('tipo, motivo, cantidad');
       int prestadas = 0;
       for (var m in movimientos) {
-        if (m['tipo'] == 'SALIDA' && m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR') {
+        if (m['tipo'] == 'SALIDA' &&
+            m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR') {
           prestadas += (m['cantidad'] as int);
-        } else if (m['tipo'] == 'ENTRADA' && m['motivo'] == 'DEVOLUCION_PRESTAMO') {
+        } else if (m['tipo'] == 'ENTRADA' &&
+            m['motivo'] == 'DEVOLUCION_PRESTAMO') {
           prestadas -= (m['cantidad'] as int);
         }
       }
 
-      setState(() {
-        _totalHerramientas = total;
-        _prestamosActivos = prestadas < 0 ? 0 : prestadas;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _totalHerramientas = total;
+          _prestamosActivos = prestadas < 0 ? 0 : prestadas;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -61,7 +74,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panel de Administración', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Panel de Administración',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -72,88 +88,258 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
               );
             },
-          )
+          ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _cargarMetricas,
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: LinearProgressIndicator(),
-                    )
-                  else ...[
-                // Tarjetas KPI
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildKPICard(
-                        title: 'Herramientas Totales',
-                        value: '$_totalHerramientas',
-                        icon: Icons.inventory_2_outlined,
-                        color: colors.primary,
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(
+            child: _isLoading && _totalHerramientas == 0
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _cargarMetricas,
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Tarjetas KPI
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      title: 'Herramientas Totales',
+                                      value: '$_totalHerramientas',
+                                      icon: Icons.inventory_2_outlined,
+                                      color: colors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      title: 'Préstamos Activos',
+                                      value: '$_prestamosActivos',
+                                      icon: Icons.handshake_outlined,
+                                      color: Colors.amber.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 32),
+                              const Text(
+                                'Acciones Rápidas',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Botones de acción rápida
+                              _buildActionButton(
+                                title: 'Escanear QR de Herramienta',
+                                subtitle:
+                                    'Registrar Entradas, Prestamos, Salidas o Bajas de herramienta',
+                                icon: Icons.qr_code_scanner_rounded,
+                                color: colors.primary,
+                                onTap: () => _mostrarMenuScanner(context),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildActionButton(
+                                title: 'Catálogo de Herramientas',
+                                subtitle:
+                                    'Gestionar equipos, stock e imprimir QRs',
+                                icon: Icons.format_list_bulleted_rounded,
+                                color: colors.secondary,
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const HerramientasListScreen(),
+                                    ),
+                                  );
+                                  _cargarMetricas(background: true);
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              _buildActionButton(
+                                title: 'Historial de Movimientos',
+                                subtitle:
+                                    'Consultar y corregir registros de entrada/salida',
+                                icon: Icons.history_rounded,
+                                color: Colors.teal,
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const HistorialMovimientosScreen(),
+                                    ),
+                                  );
+                                  _cargarMetricas(background: true);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildKPICard(
-                        title: 'Préstamos Activos',
-                        value: '$_prestamosActivos',
-                        icon: Icons.handshake_outlined,
-                        color: Colors.amber.shade700,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarMenuScanner(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Escanear Código QR',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Selecciona qué tipo de movimiento deseas registrar al escanear la herramienta',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _abrirScanner(context, 'ENTRADA');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        color: Colors.green.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.login_rounded, color: Colors.green, size: 32),
+                          SizedBox(height: 12),
+                          Text(
+                            'ENTRADA',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Devolución / Stock',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                const Text(
-                  'Acciones Rápidas',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                
-                // Botones de acción rápida
-                _buildActionButton(
-                  title: 'Escanear QR de Herramienta',
-                  subtitle: 'Registrar préstamo, devolución o baja',
-                  icon: Icons.qr_code_scanner_rounded,
-                  color: colors.primary,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ScannerView()),
                   ),
                 ),
-                const SizedBox(height: 16),
-                _buildActionButton(
-                  title: 'Catálogo de Herramientas',
-                  subtitle: 'Gestionar equipos, stock e imprimir QRs',
-                  icon: Icons.format_list_bulleted_rounded,
-                  color: colors.secondary,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HerramientasListScreen()),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _abrirScanner(context, 'SALIDA');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                        color: colors.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.logout_rounded, color: colors.primary, size: 32),
+                          const SizedBox(height: 12),
+                          Text(
+                            'SALIDA / PRÉSTAMO',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colors.primary,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Préstamo / Baja',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 
-  Widget _buildKPICard({required String title, required String value, required IconData icon, required Color color}) {
+  void _abrirScanner(BuildContext context, String tipo) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScannerView(defaultTipo: tipo),
+      ),
+    );
+    _cargarMetricas(background: true);
+  }
+
+  Widget _buildKPICard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -163,16 +349,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 16),
-            Text(value, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4),
-            Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              title,
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionButton({required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildActionButton({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -197,9 +395,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                 ],
               ),
             ),

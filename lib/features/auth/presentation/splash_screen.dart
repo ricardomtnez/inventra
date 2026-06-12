@@ -72,9 +72,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     _entranceController.forward();
     _glowController.repeat(reverse: true);
 
-    // 3. Temporizador de textos dinámicos
+    // 3. Temporizador de textos dinámicos (más espaciado para permitir lectura)
     _currentText = _loadingTexts[_textIndex];
-    _textTimer = Timer.periodic(const Duration(milliseconds: 650), (timer) {
+    _textTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) {
       if (mounted) {
         setState(() {
           _textIndex = (_textIndex + 1) % _loadingTexts.length;
@@ -248,13 +248,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   children: [
                     // Texto dinámico con animación de cambio de texto
                     AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 500),
+                      switchInCurve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+                      switchOutCurve: const Interval(0.0, 0.5, curve: Curves.easeOut),
                       transitionBuilder: (Widget child, Animation<double> animation) {
                         return FadeTransition(
                           opacity: animation,
                           child: SlideTransition(
                             position: Tween<Offset>(
-                              begin: const Offset(0, 0.2),
+                              begin: const Offset(0, 0.15),
                               end: Offset.zero,
                             ).animate(animation),
                             child: child,

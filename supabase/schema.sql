@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     nombre_completo TEXT,
     correo TEXT,
+    matricula TEXT,
     fecha_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -67,11 +68,12 @@ DECLARE
     v_role_id UUID;
 BEGIN
     -- Crear el perfil del usuario
-    INSERT INTO public.perfiles (id, nombre_completo, correo)
+    INSERT INTO public.perfiles (id, nombre_completo, correo, matricula)
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'nombre_completo', NEW.raw_user_meta_data->>'name', 'Usuario Nuevo'),
-        NEW.email
+        NEW.email,
+        NEW.raw_user_meta_data->>'matricula'
     );
 
     -- Por defecto, a todos los usuarios creados les asignaremos ADMIN en esta fase inicial
@@ -144,12 +146,15 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
         'DEVOLUCION_PRESTAMO', 
         'PRESTAMO_ALUMNO_PROFESOR', 
         'BAJA_DESCOMPOSTURA', 
-        'BAJA_PERDIDA'
+        'BAJA_PERDIDA',
+        'INVENTARIO_INICIAL'
     )),
     cantidad INT NOT NULL CHECK (cantidad > 0),
     precio_unitario NUMERIC(12,2) DEFAULT 0.00 CHECK (precio_unitario >= 0),
     responsable_nombre TEXT,
     matricula TEXT,
+    entregado_por_nombre TEXT,
+    entregado_por_uid UUID,
     fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -180,7 +185,7 @@ BEGIN
     IF NEW.tipo = 'ENTRADA' THEN
         v_nuevo_stock := v_stock_actual + NEW.cantidad;
         
-        IF NEW.motivo = 'COMPRA_NUEVA' THEN
+        IF NEW.motivo IN ('COMPRA_NUEVA', 'INVENTARIO_INICIAL') THEN
             -- Calcular costo promedio ponderado contable
             IF v_nuevo_stock > 0 THEN
                 v_nuevo_costo := ((v_stock_actual * v_costo_actual) + (NEW.cantidad * COALESCE(NEW.precio_unitario, 0.00))) / v_nuevo_stock;
@@ -297,4 +302,85 @@ VALUES (
     (SELECT id FROM public.roles WHERE nombre = 'ADMIN')
 )
 ON CONFLICT (usuario_id, role_id) DO NOTHING;
+
+-- 9. Edición Auditada de Movimientos e Historial
+ALTER TABLE public.movimientos ADD COLUMN IF NOT EXISTS observacion_edicion TEXT;
+ALTER TABLE public.movimientos ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMP WITH TIME ZONE;
+
+-- Trigger para manejar la actualización de movimientos y ajustar el stock correspondientemente
+CREATE OR REPLACE FUNCTION public.fn_actualizar_stock_y_costo_on_update()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_stock_actual INT;
+    v_diferencia INT;
+BEGIN
+    -- Obtener stock actual de la herramienta
+    SELECT stock INTO v_stock_actual
+    FROM public.herramientas
+    WHERE id = NEW.herramienta_id;
+
+    -- Calcular la diferencia según el tipo de movimiento
+    IF OLD.tipo = 'ENTRADA' THEN
+        v_diferencia := NEW.cantidad - OLD.cantidad;
+    ELSIF OLD.tipo = 'SALIDA' THEN
+        v_diferencia := OLD.cantidad - NEW.cantidad;
+    END IF;
+
+    -- Validar que no resulte en stock negativo
+    IF (v_stock_actual + v_diferencia) < 0 THEN
+        RAISE EXCEPTION 'Stock insuficiente para realizar esta modificación. Stock actual disponible: %, Cambio neto: %', v_stock_actual, v_diferencia;
+    END IF;
+
+    -- Actualizar herramienta
+    UPDATE public.herramientas
+    SET stock = stock + v_diferencia
+    WHERE id = NEW.herramienta_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_actualizar_stock_y_costo_on_update ON public.movimientos;
+CREATE TRIGGER trg_actualizar_stock_y_costo_on_update
+AFTER UPDATE ON public.movimientos
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_actualizar_stock_y_costo_on_update();
+
+
+-- 10. Sistema de Unidades de Medida
+CREATE TABLE IF NOT EXISTS public.unidades_medida (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre TEXT NOT NULL UNIQUE,
+    abreviatura TEXT NOT NULL UNIQUE,
+    fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Habilitar RLS para unidades_medida
+ALTER TABLE public.unidades_medida ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para unidades_medida
+DROP POLICY IF EXISTS "Lectura pública de unidades de medida" ON public.unidades_medida;
+CREATE POLICY "Lectura pública de unidades de medida" ON public.unidades_medida
+    FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "Escritura de unidades de medida para administradores" ON public.unidades_medida;
+CREATE POLICY "Escritura de unidades de medida para administradores" ON public.unidades_medida
+    FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'ADMIN')) WITH CHECK (public.has_role(auth.uid(), 'ADMIN'));
+
+-- Insertar unidades de medida comunes
+INSERT INTO public.unidades_medida (nombre, abreviatura)
+VALUES
+    ('Pieza', 'Pza'),
+    ('Metro', 'M'),
+    ('Litro', 'L'),
+    ('Juego', 'Jgo'),
+    ('Kilogramo', 'Kg'),
+    ('Paquete', 'Paq'),
+    ('Caja', 'Caja'),
+    ('Rollo', 'Rollo')
+ON CONFLICT (nombre) DO UPDATE SET abreviatura = EXCLUDED.abreviatura;
+
+-- Vincular tabla de herramientas con unidades de medida
+ALTER TABLE public.herramientas 
+ADD COLUMN IF NOT EXISTS unidad_medida_id UUID REFERENCES public.unidades_medida(id) ON DELETE SET NULL;
 

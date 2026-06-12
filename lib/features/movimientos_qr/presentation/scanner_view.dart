@@ -4,7 +4,9 @@ import '../../../core/supabase/supabase_client.dart';
 import 'registrar_movimiento_screen.dart';
 
 class ScannerView extends StatefulWidget {
-  const ScannerView({super.key});
+  final String? defaultTipo;
+
+  const ScannerView({super.key, this.defaultTipo});
 
   @override
   State<ScannerView> createState() => _ScannerViewState();
@@ -37,7 +39,7 @@ class _ScannerViewState extends State<ScannerView> {
       final client = SupabaseClientHelper.client;
       final tool = await client
           .from('herramientas')
-          .select('*, ubicaciones(nombre)')
+          .select('*, ubicaciones(nombre), unidades_medida(nombre, abreviatura)')
           .eq('id', toolId)
           .single();
 
@@ -46,7 +48,10 @@ class _ScannerViewState extends State<ScannerView> {
       final res = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => RegistrarMovimientoScreen(herramienta: tool),
+          builder: (context) => RegistrarMovimientoScreen(
+            herramienta: tool,
+            tipoInicial: widget.defaultTipo,
+          ),
         ),
       );
 
