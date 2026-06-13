@@ -49,6 +49,18 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       home: homeScreen,
       debugShowCheckedModeBanner: false,
+      onGenerateRoute: (settings) {
+        if (settings.name != null && settings.name!.startsWith('/herramienta')) {
+          final uri = Uri.parse(settings.name!);
+          final toolId = uri.queryParameters['id'];
+          if (toolId != null && toolId.isNotEmpty) {
+            return MaterialPageRoute(
+              builder: (context) => PublicToolDetailScreen(herramientaId: toolId),
+            );
+          }
+        }
+        return null; // Deja que Flutter maneje el resto (home, etc.)
+      },
     );
   }
 }
