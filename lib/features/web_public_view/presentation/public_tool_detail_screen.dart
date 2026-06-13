@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/pdf_download_helper.dart';
 
 class PublicToolDetailScreen extends StatefulWidget {
   final String herramientaId;
@@ -269,14 +271,53 @@ class _PublicToolDetailScreenState extends State<PublicToolDetailScreen> {
         ),
       );
 
+      final pdfBytes = await doc.save();
+
       if (mounted) {
         Navigator.pop(context); // Cerrar diálogo de carga
       }
 
-      await Printing.layoutPdf(
-        name: 'Ficha_Tecnica_${_herramienta!['nombre']}',
-        onLayout: (format) async => doc.save(),
-      );
+      if (kIsWeb) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.picture_as_pdf_rounded, color: Colors.blue),
+                  SizedBox(width: 10),
+                  Text('Ficha Técnica Lista'),
+                ],
+              ),
+              content: const Text(
+                'El documento PDF ha sido generado. Presiona el botón para descargarlo o imprimirlo.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cerrar'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await PdfDownloadHelper.downloadPdf(
+                      bytes: pdfBytes,
+                      filename: 'Ficha_Tecnica_${_herramienta!['nombre'].replaceAll(' ', '_')}.pdf',
+                    );
+                  },
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Descargar PDF'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        await Printing.layoutPdf(
+          name: 'Ficha_Tecnica_${_herramienta!['nombre']}',
+          onLayout: (format) async => pdfBytes,
+        );
+      }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Cerrar diálogo de carga

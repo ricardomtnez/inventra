@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -10,6 +11,7 @@ import '../../../core/presentation/pdf_viewer_screen.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../../core/services/connectivity_service.dart';
 import '../../../core/services/sync_service.dart';
+import '../../../core/utils/pdf_download_helper.dart';
 
 class RegistrarMovimientoScreen extends StatefulWidget {
   final Map<String, dynamic> herramienta;
@@ -376,28 +378,41 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           ElevatedButton.icon(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context); // cerrar diálogo
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PdfViewerScreen(
-                    title: 'Vale Digital VALE-${folio.toString().padLeft(6, '0')}',
-                    pdfBytes: pdfBytes,
-                  ),
-                ),
-              ).then((_) {
+              if (kIsWeb) {
+                await PdfDownloadHelper.downloadPdf(
+                  bytes: pdfBytes,
+                  filename: 'Vale_Digital_VALE_${folio.toString().padLeft(6, '0')}.pdf',
+                );
                 if (context.mounted) {
                   Navigator.pop(context, true); // regresar al listado
                 }
-              });
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PdfViewerScreen(
+                      title: 'Vale Digital VALE-${folio.toString().padLeft(6, '0')}',
+                      pdfBytes: pdfBytes,
+                    ),
+                  ),
+                ).then((_) {
+                  if (context.mounted) {
+                    Navigator.pop(context, true); // regresar al listado
+                  }
+                });
+              }
             },
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            icon: const Icon(Icons.picture_as_pdf_rounded),
-            label: const Text('VER VALE DIGITAL (PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: Icon(kIsWeb ? Icons.download_rounded : Icons.picture_as_pdf_rounded),
+            label: Text(
+              kIsWeb ? 'DESCARGAR VALE DIGITAL (PDF)' : 'VER VALE DIGITAL (PDF)',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 8),
           Center(

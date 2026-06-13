@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+import '../utils/pdf_download_helper.dart';
 
 class PdfViewerScreen extends StatelessWidget {
   final String title;
@@ -20,6 +22,20 @@ class PdfViewerScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          if (kIsWeb)
+            IconButton(
+              icon: const Icon(Icons.download_rounded),
+              tooltip: 'Descargar PDF',
+              onPressed: () async {
+                final bytes = pdfBytes ?? await buildPdf!(PdfPageFormat.letter);
+                await PdfDownloadHelper.downloadPdf(
+                  bytes: bytes,
+                  filename: '${title.replaceAll(' ', '_')}.pdf',
+                );
+              },
+            ),
+        ],
       ),
       body: PdfPreview(
         build: pdfBytes != null ? (_) => pdfBytes! : buildPdf!,
