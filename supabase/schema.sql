@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
     matricula TEXT,
     entregado_por_nombre TEXT,
     entregado_por_uid UUID,
+    observaciones TEXT,
     fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -383,4 +384,7 @@ ON CONFLICT (nombre) DO UPDATE SET abreviatura = EXCLUDED.abreviatura;
 -- Vincular tabla de herramientas con unidades de medida
 ALTER TABLE public.herramientas 
 ADD COLUMN IF NOT EXISTS unidad_medida_id UUID REFERENCES public.unidades_medida(id) ON DELETE SET NULL;
+
+-- Agregar columna observaciones a la tabla movimientos
+ALTER TABLE public.movimientos ADD COLUMN IF NOT EXISTS observaciones TEXT;
 

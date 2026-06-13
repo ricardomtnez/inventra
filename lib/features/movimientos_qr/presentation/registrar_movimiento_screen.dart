@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:image_picker/image_picker.dart';
-import 'firma_canvas.dart';
+import 'signature_pad.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/presentation/pdf_viewer_screen.dart';
 import '../../../core/widgets/offline_banner.dart';
@@ -30,6 +31,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
   final _priceController = TextEditingController(text: '0.00');
   final _responsableController = TextEditingController();
   final _matriculaController = TextEditingController();
+  final _observacionesController = TextEditingController();
   final _picker = ImagePicker();
   
   String _tipo = 'SALIDA';
@@ -38,6 +40,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
   Uint8List? _ineBytes;
   bool _isSaving = false;
   Map<String, dynamic>? _currentProfile;
+
+  bool _isScrollEnabled = true;
+  bool _hasAttemptedSubmit = false;
 
   @override
   void initState() {
@@ -59,6 +64,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     _priceController.dispose();
     _responsableController.dispose();
     _matriculaController.dispose();
+    _observacionesController.dispose();
     super.dispose();
   }
 
@@ -84,15 +90,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     }
   }
 
-  Future<void> _capturarFirma() async {
-    final bytes = await Navigator.push<Uint8List>(
-      context,
-      MaterialPageRoute(builder: (context) => const FirmaCanvasScreen()),
-    );
-    if (bytes != null) {
-      setState(() => _firmaBytes = bytes);
-    }
-  }
+
 
   Future<void> _capturarIne(ImageSource source) async {
     try {
@@ -146,13 +144,28 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
   }
 
   Future<void> _procesarTransaccion() async {
+    setState(() {
+      _hasAttemptedSubmit = true;
+    });
+
+    if (_tipo == 'SALIDA') {
+      if (_firmaBytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Firma obligatoria para registrar la salida (Recuerde presionar ACEPTAR para guardar la firma)')),
+        );
+        return;
+      }
+    }
+
     if (!_formKey.currentState!.validate()) return;
     
-    if (_tipo == 'SALIDA' && _firmaBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Firma obligatoria para registrar la salida')),
-      );
-      return;
+    if (_tipo == 'SALIDA') {
+      if (_ineBytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Identificación (INE/Credencial) obligatoria para registrar la salida')),
+        );
+        return;
+      }
     }
     
     setState(() => _isSaving = true);
@@ -183,6 +196,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
           'matricula': _matriculaController.text.trim(),
           'entregado_por_nombre': entregadoPorNombre,
           'entregado_por_uid': entregadoPorUid,
+          'observaciones': _observacionesController.text.trim(),
         };
         await SyncService().encolarMovimiento(movData);
         folio = DateTime.now().millisecondsSinceEpoch % 100000;
@@ -199,6 +213,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
           'matricula': _matriculaController.text.trim(),
           'entregado_por_nombre': entregadoPorNombre,
           'entregado_por_uid': entregadoPorUid,
+          'observaciones': _observacionesController.text.trim(),
         }).select('folio, fecha').single();
 
         folio = insertRes['folio'] ?? 0;
@@ -277,6 +292,10 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                   pw.Text('Responsable (Recibe): ${_responsableController.text}'),
                   pw.Text('Matrícula/ID: ${_matriculaController.text}'),
                   pw.Text('Entregado por (Operador): $entregadoPorNombre'),
+                  if (_observacionesController.text.trim().isNotEmpty) ...[
+                    pw.SizedBox(height: 5),
+                    pw.Text('Observaciones: ${_observacionesController.text.trim()}'),
+                  ],
                   pw.SizedBox(height: 30),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -402,7 +421,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: AppBar(title: Text('Transacción: ${widget.herramienta['nombre']}')),
+        appBar: AppBar(title: const Text('Transacción')),
         body: Column(
           children: [
             const OfflineBanner(),
@@ -410,12 +429,116 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
               child: _isSaving
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
+                      physics: _isScrollEnabled ? null : const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(24),
                       child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Tarjeta de detalles del material/herramienta (Estándar de la industria)
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: colors.outline.withValues(alpha: 0.15), width: 1),
+                        ),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF1E293B)
+                            : Colors.grey.shade50,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: widget.herramienta['foto_url'] != null
+                                    ? CachedNetworkImage(
+                                        imageUrl: widget.herramienta['foto_url'],
+                                        width: 70,
+                                        height: 70,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) => Container(
+                                          width: 70,
+                                          height: 70,
+                                          color: Colors.grey.shade200,
+                                          child: const Center(
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        ),
+                                        errorWidget: (_, __, ___) => Container(
+                                          width: 70,
+                                          height: 70,
+                                          color: Colors.grey.shade200,
+                                          child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 28),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 70,
+                                        height: 70,
+                                        color: Colors.grey.shade200,
+                                        child: const Icon(Icons.handyman_rounded, color: Colors.grey, size: 28),
+                                      ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.herramienta['nombre'] ?? 'Sin nombre',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            widget.herramienta['ubicaciones']?['nombre'] ?? 'Sin ubicación',
+                                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: (widget.herramienta['stock'] as int? ?? 0) > 0
+                                            ? Colors.green.withValues(alpha: 0.1)
+                                            : Colors.red.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'Stock actual: ${widget.herramienta['stock'] ?? 0} ${widget.herramienta['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: (widget.herramienta['stock'] as int? ?? 0) > 0
+                                              ? Colors.green.shade700
+                                              : Colors.red.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                       if (widget.tipoInicial != null)
                         Container(
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
@@ -438,13 +561,15 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                                 color: _tipo == 'ENTRADA' ? Colors.green.shade700 : colors.primary,
                               ),
                               const SizedBox(width: 12),
-                              Text(
-                                _tipo == 'ENTRADA' ? 'REGISTRANDO ENTRADA / DEVOLUCIÓN' : 'REGISTRANDO SALIDA / PRÉSTAMO',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: _tipo == 'ENTRADA' ? Colors.green.shade800 : colors.primary,
-                                  letterSpacing: 0.5,
+                              Expanded(
+                                child: Text(
+                                  _tipo == 'ENTRADA' ? 'REGISTRANDO ENTRADA / DEVOLUCIÓN' : 'REGISTRANDO SALIDA / PRÉSTAMO',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: _tipo == 'ENTRADA' ? Colors.green.shade800 : colors.primary,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ),
                             ],
@@ -468,6 +593,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                                       _motivo = 'PRESTAMO_ALUMNO_PROFESOR';
                                       _responsableController.clear();
                                       _matriculaController.clear();
+                                      _hasAttemptedSubmit = false;
                                     });
                                   },
                                   child: Container(
@@ -504,6 +630,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                                     setState(() {
                                       _tipo = 'ENTRADA';
                                       _motivo = 'DEVOLUCION_PRESTAMO';
+                                      _hasAttemptedSubmit = false;
                                       if (_currentProfile != null) {
                                         _responsableController.text = _currentProfile!['nombre_completo'] ?? '';
                                         _matriculaController.text = _currentProfile!['matricula'] ?? SupabaseClientHelper.client.auth.currentUser?.id ?? '';
@@ -566,7 +693,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           labelText: 'Cantidad',
                           suffixText: widget.herramienta['unidades_medida']?['abreviatura'] ?? 'Pza',
                         ),
-                        validator: (v) => (v == null || int.tryParse(v) == null || int.parse(v) <= 0) ? 'Cantidad inválida' : null,
+                        validator: (v) => (v == null || int.tryParse(v) == null || int.parse(v) <= 0)
+                            ? 'Por favor, ingrese una cantidad mayor a 0'
+                            : null,
                       ),
                       if (_tipo == 'ENTRADA' && _motivo == 'COMPRA_NUEVA') ...[
                         const SizedBox(height: 16),
@@ -574,7 +703,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           controller: _priceController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(labelText: r'Precio Unitario de Compra ($)'),
-                          validator: (v) => (v == null || double.tryParse(v) == null || double.parse(v) < 0) ? 'Precio inválido' : null,
+                          validator: (v) => (v == null || double.tryParse(v) == null || double.parse(v) < 0)
+                              ? 'Por favor, ingrese un precio unitario válido'
+                              : null,
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -585,7 +716,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           labelText: _tipo == 'ENTRADA' ? 'Responsable (Automático)' : 'Nombre del Responsable',
                           prefixIcon: const Icon(Icons.person_outline_rounded),
                         ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Por favor, ingrese el nombre del responsable'
+                            : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -595,38 +728,51 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           labelText: _tipo == 'ENTRADA' ? 'Matrícula / ID (Automático)' : 'Matrícula / ID',
                           prefixIcon: const Icon(Icons.badge_outlined),
                         ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Por favor, ingrese la matrícula o ID'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _observacionesController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Observaciones (Opcional)',
+                          prefixIcon: Icon(Icons.rate_review_outlined),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       
                       if (_tipo == 'SALIDA') ...[
                         // Firma Box
-                        const Text(
-                          'Firma del Responsable',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        SignaturePad(
+                          title: 'Firma del Responsable',
+                          initialBytes: _firmaBytes,
+                          onSave: (bytes) {
+                            setState(() => _firmaBytes = bytes);
+                          },
+                          onDragStart: () {
+                            setState(() => _isScrollEnabled = false);
+                          },
+                          onDragEnd: () {
+                            setState(() => _isScrollEnabled = true);
+                          },
                         ),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(12),
+                        if (_hasAttemptedSubmit && _firmaBytes == null) ...[
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              'Firma obligatoria para registrar la salida',
+                              style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                            ),
                           ),
-                          child: _firmaBytes != null
-                              ? Image.memory(_firmaBytes!, fit: BoxFit.contain)
-                              : Center(
-                                  child: TextButton.icon(
-                                    onPressed: _capturarFirma,
-                                    icon: const Icon(Icons.gesture_rounded),
-                                    label: const Text('Capturar Firma del Alumno/Profesor'),
-                                  ),
-                                ),
-                        ),
+                        ],
                         
                         // Identificación / INE Box
                         const SizedBox(height: 24),
                         const Text(
-                          'Identificación del Responsable (INE / Credencial) - Opcional',
+                          'Identificación del Responsable (INE / Credencial) - Obligatorio',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const SizedBox(height: 8),

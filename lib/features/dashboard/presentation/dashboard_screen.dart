@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../herramientas_catalogo/presentation/herramientas_list.dart';
@@ -19,11 +21,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalHerramientas = 0;
   int _prestamosActivos = 0;
   bool _isLoading = true;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _cargarMetricas();
+    _escucharAuthState();
+  }
+
+  void _escucharAuthState() {
+    _authSubscription = SupabaseClientHelper.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedOut) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _cargarMetricas({bool background = false}) async {

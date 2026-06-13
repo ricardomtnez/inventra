@@ -27,6 +27,7 @@ class PdfViewerScreen extends StatelessWidget {
         allowSharing: true,
         canChangePageFormat: false,
         canChangeOrientation: false,
+        canDebug: false,
         pdfFileName: '${title.replaceAll(' ', '_')}.pdf',
       ),
     );

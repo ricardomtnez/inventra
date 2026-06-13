@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/services/connectivity_service.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
 import '../data/auth_repository.dart';
 import 'login_screen.dart';
@@ -111,7 +112,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       try {
         await authRepository.loadRoles();
       } catch (_) {
-        isAuthed = false;
+        // Si falla por falta de internet (offline), mantenemos la sesión local.
+        // Solo desautorizamos si realmente estamos online y la sesión es inválida.
+        final isOffline = ConnectivityService().isOffline.value;
+        if (!isOffline) {
+          isAuthed = false;
+        }
       }
     }
 
