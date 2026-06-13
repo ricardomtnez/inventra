@@ -2,12 +2,7 @@
   "version": 2,
   "buildCommand": "bash vercel-build.sh",
   "outputDirectory": "build/web",
-  "cleanUrls": true,
   "rewrites": [
-    {
-      "source": "/herramienta",
-      "destination": "/index.html"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
