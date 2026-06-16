@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:math' show pi;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
@@ -9,6 +11,7 @@ import '../../../core/widgets/offline_banner.dart';
 import '../../herramientas_catalogo/data/herramientas_repository.dart';
 import '../../../core/presentation/pdf_viewer_screen.dart';
 import '../../../core/utils/pdf_download_helper.dart';
+import '../../../core/supabase/supabase_client.dart';
 
 class HistorialMovimientosScreen extends StatefulWidget {
   const HistorialMovimientosScreen({super.key});
@@ -75,6 +78,29 @@ class _HistorialMovimientosScreenState
 
     try {
       final Uint8List firmaBytes = base64Decode(firmaBase64);
+      final client = SupabaseClientHelper.client;
+      Uint8List? ineBytes;
+      bool isIneVertical = false;
+
+      final estado = prestamo['estado'] as String? ?? 'ACTIVO';
+
+      // Si el préstamo no está devuelto (por tanto, su INE sigue existiendo en Storage)
+      // intentamos descargarla para pintarla en el vale reconstruido.
+      if (estado != 'DEVUELTO') {
+        try {
+          final String path = 'identificaciones/ine_${prestamo['id']}.jpg';
+          final responseBytes = await client.storage.from('fotos_herramientas').download(path);
+          ineBytes = responseBytes;
+
+          final codec = await ui.instantiateImageCodec(ineBytes);
+          final frame = await codec.getNextFrame();
+          isIneVertical = frame.image.height > frame.image.width;
+        } catch (_) {
+          // Si el archivo ya no está o falla la red, simplemente ignoramos
+          // y el PDF se generará sin la sección de la INE.
+        }
+      }
+
       final pdf = pw.Document();
 
       final folio = prestamo['folio'] ?? 0;
@@ -106,149 +132,207 @@ class _HistorialMovimientosScreenState
           ),
           margin: const pw.EdgeInsets.all(20),
           build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+            return pw.Stack(
               children: [
-                pw.Center(
-                  child: pw.Text(
-                    'INVENTRA',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 18,
-                      color: PdfColors.blue800,
-                    ),
-                  ),
-                ),
-                pw.Center(
-                  child: pw.Text(
-                    'VALE DE CONTROL DE HERRAMIENTAS (RECONSTRUIDO)',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 9,
-                      color: PdfColors.grey700,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Divider(thickness: 1, color: PdfColors.grey300),
-                pw.SizedBox(height: 6),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      'FOLIO: VALE-$folioStr',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 11,
-                        color: PdfColors.red800,
-                      ),
-                    ),
-                    pw.Text(
-                      'Fecha: $dateStr',
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 10),
-                pw.Text(
-                  'DETALLES DEL MOVIMIENTO:',
-                  style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 9,
-                    color: PdfColors.blue800,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Bullet(
-                  text: 'Tipo: SALIDA',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Motivo: PRESTAMO_ALUMNO_PROFESOR',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Herramienta: $toolName',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Cantidad: $cantidad $abrv',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Responsable: $responsable',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Matrícula/ID: $matricula',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                pw.Bullet(
-                  text: 'Entregado por: $entregadoPorNombre',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-                if (observaciones.isNotEmpty)
-                  pw.Bullet(
-                    text: 'Observaciones: $observaciones',
-                    style: const pw.TextStyle(fontSize: 8),
-                  ),
-                pw.SizedBox(height: 10),
-                pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.BarcodeWidget(
-                        barcode: pw.Barcode.qrCode(),
-                        data: 'INVENTRA_PRESTAMO:${prestamo['id']}',
-                        width: 85,
-                        height: 85,
-                      ),
-                      pw.SizedBox(height: 3),
-                      pw.Text(
-                        'ESCANEAR PARA DEVOLUCIÓN',
+                    pw.Center(
+                      child: pw.Text(
+                        'INVENTRA',
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
-                          fontSize: 7,
+                          fontSize: 18,
+                          color: PdfColors.blue800,
+                        ),
+                      ),
+                    ),
+                    pw.Center(
+                      child: pw.Text(
+                        'VALE DE CONTROL DE HERRAMIENTAS (RECONSTRUIDO)',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 9,
                           color: PdfColors.grey700,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                pw.Spacer(),
-                pw.Divider(thickness: 1, color: PdfColors.grey300),
-                pw.SizedBox(height: 6),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.start,
-                  children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Divider(thickness: 1, color: PdfColors.grey300),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text(
-                          'Firma del Responsable (Digital):',
+                          'FOLIO: VALE-$folioStr',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
-                            fontSize: 8,
+                            fontSize: 11,
+                            color: PdfColors.red800,
                           ),
                         ),
-                        pw.SizedBox(height: 4),
-                        pw.Container(
-                          width: 160,
-                          height: 80,
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                          ),
-                          child: pw.Center(
-                            child: pw.Image(pw.MemoryImage(firmaBytes), fit: pw.BoxFit.contain),
+                        pw.Text(
+                          'Fecha: $dateStr',
+                          style: const pw.TextStyle(
+                            fontSize: 9,
+                            color: PdfColors.grey700,
                           ),
                         ),
                       ],
                     ),
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      'DETALLES DEL MOVIMIENTO:',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 9,
+                        color: PdfColors.blue800,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Bullet(
+                      text: 'Tipo: SALIDA',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Motivo: PRESTAMO_ALUMNO_PROFESOR',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Herramienta: $toolName',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Cantidad: $cantidad $abrv',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Responsable: $responsable',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Matrícula/ID: $matricula',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Bullet(
+                      text: 'Entregado por: $entregadoPorNombre',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    if (observaciones.isNotEmpty)
+                      pw.Bullet(
+                        text: 'Observaciones: $observaciones',
+                        style: const pw.TextStyle(fontSize: 8),
+                      ),
+                    pw.SizedBox(height: 10),
+                    pw.Center(
+                      child: pw.Column(
+                        children: [
+                          pw.BarcodeWidget(
+                            barcode: pw.Barcode.qrCode(),
+                            data: 'INVENTRA_PRESTAMO:${prestamo['id']}',
+                            width: 85,
+                            height: 85,
+                          ),
+                          pw.SizedBox(height: 3),
+                          pw.Text(
+                            'ESCANEAR PARA DEVOLUCIÓN',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 7,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.Spacer(),
+                    pw.Divider(thickness: 1, color: PdfColors.grey300),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Firma del Responsable (Digital):',
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 8,
+                              ),
+                            ),
+                            pw.SizedBox(height: 4),
+                            pw.Container(
+                              width: 160,
+                              height: 80,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                              ),
+                              child: pw.Center(
+                                child: pw.Image(pw.MemoryImage(firmaBytes), fit: pw.BoxFit.contain),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (ineBytes != null)
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                'Identificación (INE/Credencial):',
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontSize: 8,
+                                ),
+                              ),
+                              pw.SizedBox(height: 4),
+                              pw.Container(
+                                width: 160,
+                                height: 100,
+                                decoration: pw.BoxDecoration(
+                                  border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                ),
+                                child: pw.Center(
+                                  child: isIneVertical
+                                      ? pw.Transform.rotate(
+                                          angle: pi / 2,
+                                          child: pw.Image(pw.MemoryImage(ineBytes), fit: pw.BoxFit.contain),
+                                        )
+                                      : pw.Image(pw.MemoryImage(ineBytes), fit: pw.BoxFit.contain),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ],
                 ),
+                if (estado == 'DEVUELTO')
+                  pw.Positioned(
+                    top: 10,
+                    right: 10,
+                    child: pw.Transform.rotate(
+                      angle: -0.15,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.green800, width: 2),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        ),
+                        child: pw.Text(
+                          'DEVUELTO / ENTREGADO',
+                          style: pw.TextStyle(
+                            color: PdfColors.green800,
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           },
@@ -385,6 +469,11 @@ class _HistorialMovimientosScreenState
               'Matrícula / ID:',
               m['matricula'] ?? 'Sin matrícula',
             ),
+            if (m['prestamos'] != null)
+              _buildDetailRow(
+                'Estado Préstamo:',
+                m['prestamos']['estado'] ?? 'ACTIVO',
+              ),
             _buildDetailRow('Fecha / Hora:', fecha),
 
             if (hasBeenEdited) ...[

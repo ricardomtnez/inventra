@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 import 'connectivity_service.dart';
 
@@ -75,7 +76,25 @@ class SyncService extends ChangeNotifier {
           final String table = item['table'];
           final Map<String, dynamic> data = item['data'];
           if (op == 'insert') {
-            await client.from(table).insert(data);
+            final Map<String, dynamic> insertData = Map.from(data);
+            final String? offlineIneBase64 = insertData.remove('offline_ine_base64') as String?;
+            final String? loanId = insertData['id'];
+
+            await client.from(table).insert(insertData);
+
+            // Si hay una foto de INE en base64 en la operación offline, subirla al storage ahora
+            if (offlineIneBase64 != null && loanId != null) {
+              try {
+                final bytes = base64Decode(offlineIneBase64);
+                await client.storage.from('fotos_herramientas').uploadBinary(
+                  'identificaciones/ine_$loanId.jpg',
+                  bytes,
+                  fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+                );
+              } catch (e) {
+                debugPrint('Error uploading offline INE: $e');
+              }
+            }
           } else if (op == 'update') {
             final String id = item['id'];
             if (data.containsKey('cantidad_devuelta_increment')) {
@@ -85,19 +104,39 @@ class SyncService extends ChangeNotifier {
               final int cantTotal = loan['cantidad'] as int;
               final int cantDevueltaAnterior = loan['cantidad_devuelta'] as int;
               final int nuevaCantDevuelta = cantDevueltaAnterior + increment;
+              final int capDevuelta = nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta;
               
               String nuevoEstado = 'PARCIAL';
-              if (nuevaCantDevuelta >= cantTotal) {
+              if (capDevuelta >= cantTotal) {
                 nuevoEstado = 'DEVUELTO';
               }
               
               await client.from(table).update({
-                'cantidad_devuelta': nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta,
+                'cantidad_devuelta': capDevuelta,
                 'estado': nuevoEstado,
                 'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
               }).eq('id', id);
+
+              // Eliminar la INE del storage si el préstamo se liquidó por completo
+              if (nuevoEstado == 'DEVUELTO') {
+                try {
+                  await client.storage
+                      .from('fotos_herramientas')
+                      .remove(['identificaciones/ine_$id.jpg']);
+                } catch (e) {
+                  debugPrint('Error deleting offline INE: $e');
+                }
+              }
             } else {
               await client.from(table).update(data).eq('id', id);
+            }
+          } else if (op == 'delete_storage') {
+            final String bucket = data['bucket'] ?? 'fotos_herramientas';
+            final List<dynamic> paths = data['paths'] ?? [];
+            try {
+              await client.storage.from(bucket).remove(List<String>.from(paths));
+            } catch (e) {
+              debugPrint('Error executing offline storage deletion: $e');
             }
           }
         } else {

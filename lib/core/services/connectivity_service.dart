@@ -28,6 +28,13 @@ class ConnectivityService {
       return;
     }
 
+    if (kIsWeb) {
+      // En la web, las solicitudes HTTP directas suelen fallar por restricciones CORS.
+      // Si el navegador reporta una conexión activa, asumimos que está online.
+      isOffline.value = false;
+      return;
+    }
+
     // Even if connected to Wi-Fi/Mobile data, check if there is real internet access
     final hasInternet = await verifyRealInternet();
     isOffline.value = !hasInternet;

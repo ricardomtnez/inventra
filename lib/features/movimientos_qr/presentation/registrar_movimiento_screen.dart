@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pdf/pdf.dart';
@@ -408,6 +409,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
               'firma_base64': signatureBase64,
               'observaciones': observaciones,
               'estado': 'ACTIVO',
+              if (_ineBytes != null) 'offline_ine_base64': base64Encode(_ineBytes!),
             };
             await SyncService().encolarOperacion('prestamos', prestamoData);
             
@@ -442,6 +444,19 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
             
             prestamoId = prestamoRes['id'];
             prestamoFolio = prestamoRes['folio'];
+
+            // Subir INE a Supabase Storage
+            if (_ineBytes != null && prestamoId != null) {
+              try {
+                await client.storage.from('fotos_herramientas').uploadBinary(
+                  'identificaciones/ine_$prestamoId.jpg',
+                  _ineBytes!,
+                  fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+                );
+              } catch (e) {
+                debugPrint('Error al subir INE al Storage: $e');
+              }
+            }
 
             final insertRes = await client.from('movimientos').insert({
               'herramienta_id': widget.herramienta['id'],
@@ -546,6 +561,15 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                 'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
               }).eq('id', prestamoId);
 
+              // Eliminar INE del storage al devolverse
+              if (nuevoEstado == 'DEVUELTO') {
+                try {
+                  await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$prestamoId.jpg']);
+                } catch (e) {
+                  debugPrint('Error al eliminar INE del Storage: $e');
+                }
+              }
+
               final insertRes = await client.from('movimientos').insert({
                 'herramienta_id': widget.herramienta['id'],
                 'tipo': _tipo,
@@ -601,6 +625,15 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                     'estado': nuevoEstado,
                     'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
                   }).eq('id', loanId);
+                  
+                  // Eliminar la INE del Storage para este préstamo
+                  if (nuevoEstado == 'DEVUELTO') {
+                    try {
+                      await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$loanId.jpg']);
+                    } catch (e) {
+                      debugPrint('Error al eliminar INE del Storage para préstamo $loanId: $e');
+                    }
+                  }
                   
                   remainingToDevolver -= devolverAEsta;
                   lastUpdatedPrestamoId = loanId;
