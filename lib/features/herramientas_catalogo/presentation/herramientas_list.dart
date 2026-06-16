@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../../core/widgets/offline_banner.dart';
@@ -483,8 +484,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                                                 ],
                                               ),
                                             ),
-                                            // Botón de Transacción
-                                            if (!_isSelectionMode)
+                                            // Botón de Transacción y opciones Web (Editar / Eliminar)
+                                            if (!_isSelectionMode) ...[
                                               IconButton(
                                                 icon: const Icon(
                                                   Icons.swap_horiz_rounded,
@@ -498,6 +499,35 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                                                       _cargarHerramientas,
                                                     ),
                                               ),
+                                              if (kIsWeb) ...[
+                                                IconButton(
+                                                  icon: const Icon(Icons.edit_rounded),
+                                                  color: Colors.blue.shade600,
+                                                  tooltip: 'Editar Herramienta',
+                                                  onPressed: () async {
+                                                    final res = await Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            HerramientasFormScreen(
+                                                              herramienta: h,
+                                                            ),
+                                                      ),
+                                                    );
+                                                    if (res == true) {
+                                                      _cargarHerramientas();
+                                                    }
+                                                  },
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(Icons.delete_outline_rounded),
+                                                  color: Colors.redAccent,
+                                                  tooltip: 'Eliminar Herramienta',
+                                                  onPressed: () =>
+                                                      _confirmarEliminarHerramienta(h),
+                                                ),
+                                              ],
+                                            ],
                                           ],
                                         ),
                                       ),
@@ -506,7 +536,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
 
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
-                                    child: _isSelectionMode
+                                    child: (_isSelectionMode || kIsWeb)
                                         ? cardWidget
                                         : Slidable(
                                             key: ValueKey(id),
