@@ -303,300 +303,42 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                               ),
                             ],
                           )
-                        : Center(
-                            child: Container(
-                              constraints: const BoxConstraints(maxWidth: 800),
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _herramientas.length,
-                                itemBuilder: (context, index) {
-                                  final h = _herramientas[index];
-                                  final stock = h['stock'] as int;
-                                  final id = h['id'] as String;
-                                  final isSelected = _selectedToolIds.contains(
-                                    id,
-                                  );
-
-                                  final cardWidget = Card(
-                                    margin: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () {
-                                        if (_isSelectionMode) {
-                                          setState(() {
-                                            if (isSelected) {
-                                              _selectedToolIds.remove(id);
-                                            } else {
-                                              _selectedToolIds.add(id);
-                                            }
-                                          });
-                                        } else {
-                                          _mostrarDetalleHerramienta(h);
-                                        }
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              if (constraints.maxWidth > 650) {
+                                return GridView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: _herramientas.length,
+                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 460,
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 16,
+                                    childAspectRatio: 2.3,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final h = _herramientas[index];
+                                    final stock = h['stock'] as int;
+                                    final id = h['id'] as String;
+                                    final isSelected = _selectedToolIds.contains(id);
+                                    return _buildToolCard(h, id, stock, isSelected, colors);
+                                  },
+                                );
+                              } else {
+                                return Center(
+                                  child: Container(
+                                    constraints: const BoxConstraints(maxWidth: 800),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: _herramientas.length,
+                                      itemBuilder: (context, index) {
+                                        final h = _herramientas[index];
+                                        return _buildToolItem(h, colors);
                                       },
-                                      onLongPress: () {
-                                        if (!_isSelectionMode) {
-                                          setState(() {
-                                            _isSelectionMode = true;
-                                            _selectedToolIds.add(id);
-                                          });
-                                        }
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Row(
-                                          children: [
-                                            if (_isSelectionMode) ...[
-                                              Checkbox(
-                                                value: isSelected,
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    if (val == true) {
-                                                      _selectedToolIds.add(id);
-                                                    } else {
-                                                      _selectedToolIds.remove(
-                                                        id,
-                                                      );
-                                                    }
-                                                  });
-                                                },
-                                                activeColor: colors.primary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                            ],
-                                            // Foto
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: h['foto_url'] != null
-                                                  ? CachedNetworkImage(
-                                                      imageUrl: h['foto_url'],
-                                                      width: 64,
-                                                      height: 64,
-                                                      fit: BoxFit.cover,
-                                                      placeholder: (_, __) =>
-                                                          Container(
-                                                            width: 64,
-                                                            height: 64,
-                                                            color: Colors
-                                                                .grey
-                                                                .shade200,
-                                                            child: const Center(
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
-                                                            ),
-                                                          ),
-                                                      errorWidget:
-                                                          (
-                                                            _,
-                                                            __,
-                                                            ___,
-                                                          ) => Container(
-                                                            width: 64,
-                                                            height: 64,
-                                                            color: Colors
-                                                                .grey
-                                                                .shade200,
-                                                            child: const Icon(
-                                                              Icons
-                                                                  .broken_image_outlined,
-                                                              color:
-                                                                  Colors.grey,
-                                                            ),
-                                                          ),
-                                                    )
-                                                  : Container(
-                                                      width: 64,
-                                                      height: 64,
-                                                      color:
-                                                          Colors.grey.shade200,
-                                                      child: const Icon(
-                                                        Icons.handyman_rounded,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            // Detalles
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    h['nombre'],
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    h['ubicaciones']?['nombre'] ??
-                                                        'Sin ubicación',
-                                                    style: const TextStyle(
-                                                      color: Colors.grey,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Row(
-                                                    children: [
-                                                      Container(
-                                                        width: 8,
-                                                        height: 8,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                              color: stock > 0
-                                                                  ? Colors.green
-                                                                  : Colors.red,
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        stock > 0
-                                                            ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disponibles'
-                                                            : 'Sin stock',
-                                                        style: TextStyle(
-                                                          color: stock > 0
-                                                              ? Colors
-                                                                    .green
-                                                                    .shade700
-                                                              : Colors
-                                                                    .red
-                                                                    .shade700,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            // Botón de Transacción y opciones Web (Editar / Eliminar)
-                                            if (!_isSelectionMode) ...[
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.swap_horiz_rounded,
-                                                ),
-                                                color: colors.primary,
-                                                tooltip: 'Nueva Transacción',
-                                                onPressed: () =>
-                                                    _mostrarOpcionesMovimiento(
-                                                      context,
-                                                      h,
-                                                      _cargarHerramientas,
-                                                    ),
-                                              ),
-                                              if (kIsWeb) ...[
-                                                IconButton(
-                                                  icon: const Icon(Icons.edit_rounded),
-                                                  color: Colors.blue.shade600,
-                                                  tooltip: 'Editar Herramienta',
-                                                  onPressed: () async {
-                                                    final res = await Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            HerramientasFormScreen(
-                                                              herramienta: h,
-                                                            ),
-                                                      ),
-                                                    );
-                                                    if (res == true) {
-                                                      _cargarHerramientas();
-                                                    }
-                                                  },
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(Icons.delete_outline_rounded),
-                                                  color: Colors.redAccent,
-                                                  tooltip: 'Eliminar Herramienta',
-                                                  onPressed: () =>
-                                                      _confirmarEliminarHerramienta(h),
-                                                ),
-                                              ],
-                                            ],
-                                          ],
-                                        ),
-                                      ),
                                     ),
-                                  );
-
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: (_isSelectionMode || kIsWeb)
-                                        ? cardWidget
-                                        : Slidable(
-                                            key: ValueKey(id),
-                                            endActionPane: ActionPane(
-                                              motion: const ScrollMotion(),
-                                              extentRatio: 0.45,
-                                              children: [
-                                                SlidableAction(
-                                                  onPressed: (context) async {
-                                                    final res = await Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            HerramientasFormScreen(
-                                                              herramienta: h,
-                                                            ),
-                                                      ),
-                                                    );
-                                                    if (res == true) {
-                                                      _cargarHerramientas();
-                                                    }
-                                                  },
-                                                  backgroundColor:
-                                                      Colors.blue.shade600,
-                                                  foregroundColor: Colors.white,
-                                                  icon: Icons.edit_rounded,
-                                                  label: 'Editar',
-                                                  borderRadius:
-                                                      const BorderRadius.horizontal(
-                                                        left: Radius.circular(
-                                                          12,
-                                                        ),
-                                                      ),
-                                                ),
-                                                SlidableAction(
-                                                  onPressed: (context) =>
-                                                      _confirmarEliminarHerramienta(
-                                                        h,
-                                                      ),
-                                                  backgroundColor:
-                                                      Colors.redAccent,
-                                                  foregroundColor: Colors.white,
-                                                  icon: Icons
-                                                      .delete_outline_rounded,
-                                                  label: 'Eliminar',
-                                                  borderRadius:
-                                                      const BorderRadius.horizontal(
-                                                        right: Radius.circular(
-                                                          12,
-                                                        ),
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                            child: cardWidget,
-                                          ),
-                                  );
-                                },
-                              ),
-                            ),
+                                  ),
+                                );
+                              }
+                            },
                           ),
                   ),
           ),
@@ -685,6 +427,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -1009,6 +752,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -1224,6 +968,287 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildToolCard(Map<String, dynamic> h, String id, int stock, bool isSelected, ColorScheme colors) {
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          if (_isSelectionMode) {
+            setState(() {
+              if (isSelected) {
+                _selectedToolIds.remove(id);
+              } else {
+                _selectedToolIds.add(id);
+              }
+            });
+          } else {
+            _mostrarDetalleHerramienta(h);
+          }
+        },
+        onLongPress: () {
+          if (!_isSelectionMode) {
+            setState(() {
+              _isSelectionMode = true;
+              _selectedToolIds.add(id);
+            });
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              if (_isSelectionMode) ...[
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (val) {
+                    setState(() {
+                      if (val == true) {
+                        _selectedToolIds.add(id);
+                      } else {
+                        _selectedToolIds.remove(
+                          id,
+                        );
+                      }
+                    });
+                  },
+                  activeColor: colors.primary,
+                ),
+                const SizedBox(width: 8),
+              ],
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: h['foto_url'] != null
+                    ? (kIsWeb
+                        ? Image.network(
+                            h['foto_url'],
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: h['foto_url'],
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ))
+                    : Container(
+                        width: 64,
+                        height: 64,
+                        color: Colors.grey.shade200,
+                        child: const Icon(
+                          Icons.handyman_rounded,
+                          color: Colors.grey,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 16),
+              // Detalles
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      h['nombre'] ?? 'Sin nombre',
+                      style: const TextStyle(
+                        fontWeight:
+                            FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      h['ubicaciones']?['nombre'] ??
+                          'Sin ubicación',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration:
+                              BoxDecoration(
+                                color: stock > 0
+                                    ? Colors.green
+                                    : Colors.red,
+                                shape: BoxShape
+                                    .circle,
+                              ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            stock > 0
+                                ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disp.'
+                                : 'Sin stock',
+                            style: TextStyle(
+                              color: stock > 0
+                                  ? Colors
+                                        .green
+                                        .shade700
+                                  : Colors
+                                        .red
+                                        .shade700,
+                              fontWeight:
+                                  FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Botón de Transacción y opciones Web (Editar / Eliminar)
+              if (!_isSelectionMode) ...[
+                IconButton(
+                  icon: const Icon(
+                    Icons.swap_horiz_rounded,
+                  ),
+                  color: colors.primary,
+                  tooltip: 'Nueva Transacción',
+                  onPressed: () =>
+                      _mostrarOpcionesMovimiento(
+                        context,
+                        h,
+                        _cargarHerramientas,
+                      ),
+                ),
+                if (kIsWeb) ...[
+                  IconButton(
+                    icon: const Icon(Icons.edit_rounded),
+                    color: Colors.blue.shade600,
+                    tooltip: 'Editar Herramienta',
+                    onPressed: () async {
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              HerramientasFormScreen(
+                                herramienta: h,
+                              ),
+                        ),
+                      );
+                      if (res == true) {
+                        _cargarHerramientas();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    color: Colors.redAccent,
+                    tooltip: 'Eliminar Herramienta',
+                    onPressed: () =>
+                        _confirmarEliminarHerramienta(h),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolItem(Map<String, dynamic> h, ColorScheme colors) {
+    final stock = h['stock'] as int;
+    final id = h['id'] as String;
+    final isSelected = _selectedToolIds.contains(id);
+
+    final cardWidget = _buildToolCard(h, id, stock, isSelected, colors);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: (_isSelectionMode || kIsWeb)
+          ? cardWidget
+          : Slidable(
+              key: ValueKey(id),
+              endActionPane: ActionPane(
+                motion: const ScrollMotion(),
+                extentRatio: 0.45,
+                children: [
+                  SlidableAction(
+                    onPressed: (context) async {
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              HerramientasFormScreen(
+                                herramienta: h,
+                              ),
+                        ),
+                      );
+                      if (res == true) {
+                        _cargarHerramientas();
+                      }
+                    },
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    icon: Icons.edit_rounded,
+                    label: 'Editar',
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(12),
+                    ),
+                  ),
+                  SlidableAction(
+                    onPressed: (context) => _confirmarEliminarHerramienta(h),
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Eliminar',
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(12),
+                    ),
+                  ),
+                ],
+              ),
+              child: cardWidget,
+            ),
     );
   }
 }

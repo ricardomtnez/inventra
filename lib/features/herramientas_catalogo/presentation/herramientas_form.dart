@@ -86,6 +86,7 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
     FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
@@ -202,9 +203,9 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
         ),
         body: _isSaving
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final formWidget = Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -403,8 +404,40 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                       ),
                     ],
                   ),
-                ),
-              ),
+                );
+
+                if (constraints.maxWidth > 650) {
+                  final colors = Theme.of(context).colorScheme;
+                  return SingleChildScrollView(
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 700),
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: colors.outline.withValues(alpha: 0.1),
+                              width: 1,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: formWidget,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                } else {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: formWidget,
+                  );
+                }
+              },
+            ),
       ),
     );
   }

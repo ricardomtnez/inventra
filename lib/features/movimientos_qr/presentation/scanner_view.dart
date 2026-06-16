@@ -251,6 +251,7 @@ class _ScannerViewState extends State<ScannerView> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {

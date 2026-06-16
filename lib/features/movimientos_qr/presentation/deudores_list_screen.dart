@@ -132,36 +132,39 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
       body: Column(
         children: [
           // Barra de Búsqueda Premium
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _filterLoans,
-              decoration: InputDecoration(
-                hintText:
-                    'Buscar por responsable, matrícula, folio o herramienta...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          _filterLoans('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: isDark
-                    ? const Color(0xFF1E293B)
-                    : Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+          Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 800),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _filterLoans,
+                decoration: InputDecoration(
+                  hintText:
+                      'Buscar por responsable, matrícula, folio o herramienta...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () {
+                            _searchController.clear();
+                            _filterLoans('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: isDark
+                      ? const Color(0xFF1E293B)
+                      : Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
           ),
@@ -215,264 +218,283 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
                             ),
                           ],
                         )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredLoans.length,
-                          itemBuilder: (context, index) {
-                            final loan = _filteredLoans[index];
-                            final tool = loan['herramientas'] ?? {};
-                            final folio = loan['folio'] ?? 0;
-                            final cantTotal = loan['cantidad'] as int? ?? 0;
-                            final cantDev = loan['cantidad_devuelta'] as int? ?? 0;
-                            final pending = cantTotal - cantDev;
-                            final estado = loan['estado'] ?? 'ACTIVO';
-                            final fechaStr = loan['fecha_prestamo'] ?? '';
-                            final responsable =
-                                loan['responsable_nombre'] ?? 'Sin nombre';
-                            final matricula = loan['matricula'] ?? 'Sin matrícula';
-
-                            return Card(
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: colors.outline.withValues(alpha: 0.15),
-                                  width: 1,
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth > 650) {
+                              return GridView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _filteredLoans.length,
+                                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 460,
+                                  mainAxisSpacing: 16,
+                                  crossAxisSpacing: 16,
+                                  childAspectRatio: 1.9,
                                 ),
-                              ),
-                              color: isDark
-                                  ? const Color(0xFF1E293B)
-                                  : Colors.white,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Encabezado con Folio y Estado
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'VALE-${folio.toString().padLeft(6, '0')}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: colors.primary,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: estado == 'PARCIAL'
-                                                ? Colors.blue.withValues(alpha: 0.1)
-                                                : Colors.amber.withValues(
-                                                    alpha: 0.1,
-                                                  ),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            estado,
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: estado == 'PARCIAL'
-                                                  ? Colors.blue.shade700
-                                                  : Colors.amber.shade800,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // Detalles del Deudor y Herramienta
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Imagen de la herramienta
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: tool['foto_url'] != null
-                                              ? CachedNetworkImage(
-                                                  imageUrl: tool['foto_url'],
-                                                  width: 55,
-                                                  height: 55,
-                                                  fit: BoxFit.cover,
-                                                  placeholder: (_, __) => Container(
-                                                    width: 55,
-                                                    height: 55,
-                                                    color: Colors.grey.shade200,
-                                                    child: const Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  errorWidget: (_, __, ___) =>
-                                                      Container(
-                                                        width: 55,
-                                                        height: 55,
-                                                        color: Colors.grey.shade200,
-                                                        child: const Icon(
-                                                          Icons
-                                                              .broken_image_outlined,
-                                                          color: Colors.grey,
-                                                          size: 20,
-                                                        ),
-                                                      ),
-                                                )
-                                              : Container(
-                                                  width: 55,
-                                                  height: 55,
-                                                  color: Colors.grey.shade200,
-                                                  child: const Icon(
-                                                    Icons.handyman_rounded,
-                                                    color: Colors.grey,
-                                                    size: 20,
-                                                  ),
-                                                ),
-                                        ),
-                                        const SizedBox(width: 14),
-
-                                        // Texto
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                responsable,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                'Matrícula: $matricula',
-                                                style: const TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                'Herramienta: ${tool['nombre'] ?? 'Desconocido'}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                'Pendiente: $pending ${tool['unidades_medida']?['abreviatura'] ?? 'Pza'} (de $cantTotal total)',
-                                                style: TextStyle(
-                                                  color: Colors.red.shade700,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 14),
-                                    const Divider(height: 1),
-                                    const SizedBox(height: 12),
-
-                                    // Footer con fecha y botón de Devolución
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'FECHA DE PRÉSTAMO',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                _formatFecha(fechaStr),
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        ElevatedButton.icon(
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    RegistrarMovimientoScreen(
-                                                      herramienta: tool,
-                                                      tipoInicial: 'ENTRADA',
-                                                      prestamoInicial: loan,
-                                                    ),
-                                              ),
-                                            ).then((result) {
-                                              if (result == true) {
-                                                _fetchLoans();
-                                              }
-                                            });
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green.shade700,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 8,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(
-                                                10,
-                                              ),
-                                            ),
-                                            elevation: 0,
-                                          ),
-                                          icon: const Icon(
-                                            Icons.assignment_turned_in_rounded,
-                                            size: 16,
-                                          ),
-                                          label: const Text(
-                                            'Devolver',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                itemBuilder: (context, index) {
+                                  final loan = _filteredLoans[index];
+                                  return _buildDeudorCard(loan, colors, isDark);
+                                },
+                              );
+                            } else {
+                              return Center(
+                                child: Container(
+                                  constraints: const BoxConstraints(maxWidth: 800),
+                                  child: ListView.builder(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: _filteredLoans.length,
+                                    itemBuilder: (context, index) {
+                                      final loan = _filteredLoans[index];
+                                      return _buildDeudorItem(loan, colors, isDark);
+                                    },
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            }
                           },
                         ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDeudorCard(Map<String, dynamic> loan, ColorScheme colors, bool isDark) {
+    final tool = loan['herramientas'] ?? {};
+    final folio = loan['folio'] ?? 0;
+    final cantTotal = loan['cantidad'] as int? ?? 0;
+    final cantDev = loan['cantidad_devuelta'] as int? ?? 0;
+    final pending = cantTotal - cantDev;
+    final estado = loan['estado'] ?? 'ACTIVO';
+    final fechaStr = loan['fecha_prestamo'] ?? '';
+    final responsable = loan['responsable_nombre'] ?? 'Sin nombre';
+    final matricula = loan['matricula'] ?? 'Sin matrícula';
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colors.outline.withValues(alpha: 0.15),
+          width: 1,
+        ),
+      ),
+      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'VALE-${folio.toString().padLeft(6, '0')}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: colors.primary,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: estado == 'PARCIAL'
+                        ? Colors.blue.withValues(alpha: 0.1)
+                        : Colors.amber.withValues(
+                            alpha: 0.1,
+                          ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    estado,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: estado == 'PARCIAL'
+                          ? Colors.blue.shade700
+                          : Colors.amber.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: tool['foto_url'] != null
+                      ? CachedNetworkImage(
+                          imageUrl: tool['foto_url'],
+                          width: 55,
+                          height: 55,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            width: 55,
+                            height: 55,
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            width: 55,
+                            height: 55,
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 55,
+                          height: 55,
+                          color: Colors.grey.shade200,
+                          child: const Icon(
+                            Icons.handyman_rounded,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        responsable,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Matrícula: $matricula',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Herramienta: ${tool['nombre'] ?? 'Desconocido'}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pendiente: $pending ${tool['unidades_medida']?['abreviatura'] ?? 'Pza'} (de $cantTotal total)',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'FECHA DE PRÉSTAMO',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatFecha(fechaStr),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RegistrarMovimientoScreen(
+                          herramienta: tool,
+                          tipoInicial: 'ENTRADA',
+                          prestamoInicial: loan,
+                        ),
+                      ),
+                    ).then((result) {
+                      if (result == true) {
+                        _fetchLoans();
+                      }
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        10,
+                      ),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(
+                    Icons.assignment_turned_in_rounded,
+                    size: 16,
+                  ),
+                  label: const Text(
+                    'Devolver',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeudorItem(Map<String, dynamic> loan, ColorScheme colors, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: _buildDeudorCard(loan, colors, isDark),
     );
   }
 }

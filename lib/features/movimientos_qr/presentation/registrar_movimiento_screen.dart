@@ -241,6 +241,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     _unfocusAll();
     showModalBottomSheet(
       context: context,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
@@ -1016,10 +1017,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
             Expanded(
               child: _isSaving
                   ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      physics: _isScrollEnabled ? null : const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final formWidget = Form(
                         key: _formKey,
                         autovalidateMode: AutovalidateMode.onUserInteraction,
                         child: Column(
@@ -1044,26 +1044,39 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: widget.herramienta['foto_url'] != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: widget.herramienta['foto_url'],
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(
-                                          width: 70,
-                                          height: 70,
-                                          color: Colors.grey.shade200,
-                                          child: const Center(
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          ),
-                                        ),
-                                        errorWidget: (_, __, ___) => Container(
-                                          width: 70,
-                                          height: 70,
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 28),
-                                        ),
-                                      )
+                                    ? (kIsWeb
+                                        ? Image.network(
+                                            widget.herramienta['foto_url'],
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Container(
+                                              width: 70,
+                                              height: 70,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 28),
+                                            ),
+                                          )
+                                        : CachedNetworkImage(
+                                            imageUrl: widget.herramienta['foto_url'],
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                              width: 70,
+                                              height: 70,
+                                              color: Colors.grey.shade200,
+                                              child: const Center(
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              ),
+                                            ),
+                                            errorWidget: (_, __, ___) => Container(
+                                              width: 70,
+                                              height: 70,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 28),
+                                            ),
+                                          ))
                                     : Container(
                                         width: 70,
                                         height: 70,
@@ -1499,9 +1512,42 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                       )
                     ],
                   ),
-                ),
-              ),
+                );
+
+                if (constraints.maxWidth > 650) {
+                  return SingleChildScrollView(
+                    physics: _isScrollEnabled ? null : const NeverScrollableScrollPhysics(),
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 700),
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: colors.outline.withValues(alpha: 0.1),
+                              width: 1,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: formWidget,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                } else {
+                  return SingleChildScrollView(
+                    physics: _isScrollEnabled ? null : const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    child: formWidget,
+                  );
+                }
+              },
             ),
+          ),
           ],
         ),
       ),

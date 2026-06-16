@@ -390,6 +390,7 @@ class _HistorialMovimientosScreenState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -771,6 +772,7 @@ class _HistorialMovimientosScreenState
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -812,176 +814,207 @@ class _HistorialMovimientosScreenState
                               ),
                             ],
                           )
-                        : Center(
-                            child: Container(
-                              constraints: const BoxConstraints(maxWidth: 800),
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _movimientos.length,
-                                itemBuilder: (context, index) {
-                                  final m = _movimientos[index];
-                                  final tipo = m['tipo'] as String;
-                                  final folio = m['folio'] ?? 0;
-                                  final folioStr = tipo == 'ENTRADA'
-                                      ? 'E-${folio.toString().padLeft(6, '0')}'
-                                      : 'VALE-${folio.toString().padLeft(6, '0')}';
-                                  final dateStr = DateTime.parse(
-                                    m['fecha'],
-                                  ).toLocal().toString().split(' ')[0];
-                                  final toolName =
-                                      m['herramientas']?['nombre'] ?? 'N/A';
-                                  final wasEdited =
-                                      m['observacion_edicion'] != null;
-
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              if (constraints.maxWidth > 650) {
+                                return GridView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: _movimientos.length,
+                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 460,
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 16,
+                                    childAspectRatio: 3.0,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final m = _movimientos[index];
+                                    return _buildMovimientoCard(m, colors);
+                                  },
+                                );
+                              } else {
+                                return Center(
+                                  child: Container(
+                                    constraints: const BoxConstraints(maxWidth: 800),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: _movimientos.length,
+                                      itemBuilder: (context, index) {
+                                        final m = _movimientos[index];
+                                        return _buildMovimientoItem(m, colors);
+                                      },
                                     ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () => _mostrarDetalleMovimiento(m),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 14,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            // Icono indicador Entrada/Salida
-                                            Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                color: tipo == 'ENTRADA'
-                                                    ? Colors.green.withValues(
-                                                        alpha: 0.12,
-                                                      )
-                                                    : Colors.red.withValues(
-                                                        alpha: 0.12,
-                                                      ),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                tipo == 'ENTRADA'
-                                                    ? Icons.login_rounded
-                                                    : Icons.logout_rounded,
-                                                color: tipo == 'ENTRADA'
-                                                    ? Colors.green
-                                                    : Colors.red,
-                                                size: 20,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-
-                                            // Información de transacción
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Text(
-                                                        folioStr,
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 13,
-                                                          color: Colors.grey,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      if (wasEdited)
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 6,
-                                                                vertical: 2,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.amber
-                                                                .withValues(
-                                                                  alpha: 0.15,
-                                                                ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  4,
-                                                                ),
-                                                          ),
-                                                          child: Text(
-                                                            'Corregido',
-                                                            style: TextStyle(
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color: Colors
-                                                                  .amber
-                                                                  .shade900,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    toolName,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    'Responsable: ${m['responsable_nombre'] ?? 'Sin asignar'}',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            // Cantidad
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
-                                              children: [
-                                                Text(
-                                                  '${tipo == 'ENTRADA' ? '+' : '-'}${m['cantidad']}',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
-                                                    color: tipo == 'ENTRADA'
-                                                        ? Colors.green.shade700
-                                                        : Colors.red.shade700,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  dateStr,
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                                  ),
+                                );
+                              }
+                            },
                           ),
                   ),
           ),
         ],
       ),
+    );
+  }
+  Widget _buildMovimientoCard(Map<String, dynamic> m, ColorScheme colors) {
+    final tipo = m['tipo'] as String;
+    final folio = m['folio'] ?? 0;
+    final folioStr = tipo == 'ENTRADA'
+        ? 'E-${folio.toString().padLeft(6, '0')}'
+        : 'VALE-${folio.toString().padLeft(6, '0')}';
+    final dateStr = DateTime.parse(m['fecha']).toLocal().toString().split(' ')[0];
+    final toolName = m['herramientas']?['nombre'] ?? 'N/A';
+    final wasEdited = m['observacion_edicion'] != null;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _mostrarDetalleMovimiento(m),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          child: Row(
+            children: [
+              // Icono indicador Entrada/Salida
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: tipo == 'ENTRADA'
+                      ? Colors.green.withValues(
+                          alpha: 0.12,
+                        )
+                      : Colors.red.withValues(
+                          alpha: 0.12,
+                        ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  tipo == 'ENTRADA'
+                      ? Icons.login_rounded
+                      : Icons.logout_rounded,
+                  color: tipo == 'ENTRADA'
+                      ? Colors.green
+                      : Colors.red,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Información de transacción
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          folioStr,
+                          style: const TextStyle(
+                            fontWeight:
+                                FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (wasEdited)
+                          Container(
+                            padding:
+                                const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber
+                                  .withValues(
+                                    alpha: 0.15,
+                                  ),
+                              borderRadius:
+                                  BorderRadius.circular(
+                                    4,
+                                  ),
+                            ),
+                            child: Text(
+                              'Corregido',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
+                                color: Colors
+                                    .amber
+                                    .shade900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      toolName,
+                      style: const TextStyle(
+                        fontWeight:
+                            FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Responsable: ${m['responsable_nombre'] ?? 'Sin asignar'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Cantidad
+              Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${tipo == 'ENTRADA' ? '+' : '-'}${m['cantidad']}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: tipo == 'ENTRADA'
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateStr,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMovimientoItem(Map<String, dynamic> m, ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: _buildMovimientoCard(m, colors),
     );
   }
 }
