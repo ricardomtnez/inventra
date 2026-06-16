@@ -1,16 +1,25 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../../auth/data/auth_repository.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../herramientas_catalogo/data/herramientas_repository.dart';
+import '../../../core/presentation/pdf_viewer_screen.dart';
+import '../../../core/utils/pdf_download_helper.dart';
 
 class HistorialMovimientosScreen extends StatefulWidget {
   const HistorialMovimientosScreen({super.key});
 
   @override
-  State<HistorialMovimientosScreen> createState() => _HistorialMovimientosScreenState();
+  State<HistorialMovimientosScreen> createState() =>
+      _HistorialMovimientosScreenState();
 }
 
-class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen> {
+class _HistorialMovimientosScreenState
+    extends State<HistorialMovimientosScreen> {
   final _repository = HerramientasRepository();
   final _authRepository = AuthRepository();
   List<Map<String, dynamic>> _movimientos = [];
@@ -45,14 +54,252 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
     }
   }
 
+  Future<void> _reconstruirVale(Map<String, dynamic> m) async {
+    final prestamo = m['prestamos'];
+    if (prestamo == null) return;
+
+    final firmaBase64 = prestamo['firma_base64'] as String?;
+    if (firmaBase64 == null || firmaBase64.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No hay firma digital registrada en este préstamo para reconstruir el vale.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final Uint8List firmaBytes = base64Decode(firmaBase64);
+      final pdf = pw.Document();
+
+      final folio = prestamo['folio'] ?? 0;
+      final folioStr = folio.toString().padLeft(6, '0');
+
+      final String dateStr;
+      if (prestamo['fecha_prestamo'] != null) {
+        final dt = DateTime.parse(prestamo['fecha_prestamo']).toLocal();
+        dateStr = dt.toString().split('.')[0];
+      } else {
+        dateStr = DateTime.now().toString().split('.')[0];
+      }
+
+      final toolName =
+          m['herramientas']?['nombre'] ?? 'Herramienta no identificada';
+      final abrv =
+          m['herramientas']?['unidades_medida']?['abreviatura'] ?? 'Pza';
+      final responsable = prestamo['responsable_nombre'] ?? 'Sin asignar';
+      final matricula = prestamo['matricula'] ?? 'Sin matrícula';
+      final entregadoPorNombre = m['entregado_por_nombre'] ?? 'Administrador';
+      final cantidad = prestamo['cantidad'] ?? m['cantidad'] ?? 1;
+      final observaciones = prestamo['observaciones'] ?? '';
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat(
+            5.5 * PdfPageFormat.inch,
+            8.5 * PdfPageFormat.inch,
+          ),
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text(
+                    'INVENTRA',
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 18,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.Center(
+                  child: pw.Text(
+                    'VALE DE CONTROL DE HERRAMIENTAS (RECONSTRUIDO)',
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 9,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Divider(thickness: 1, color: PdfColors.grey300),
+                pw.SizedBox(height: 6),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'FOLIO: VALE-$folioStr',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        color: PdfColors.red800,
+                      ),
+                    ),
+                    pw.Text(
+                      'Fecha: $dateStr',
+                      style: const pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'DETALLES DEL MOVIMIENTO:',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 9,
+                    color: PdfColors.blue800,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Bullet(
+                  text: 'Tipo: SALIDA',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Motivo: PRESTAMO_ALUMNO_PROFESOR',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Herramienta: $toolName',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Cantidad: $cantidad $abrv',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Responsable: $responsable',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Matrícula/ID: $matricula',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                pw.Bullet(
+                  text: 'Entregado por: $entregadoPorNombre',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+                if (observaciones.isNotEmpty)
+                  pw.Bullet(
+                    text: 'Observaciones: $observaciones',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                pw.SizedBox(height: 10),
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: 'INVENTRA_PRESTAMO:${prestamo['id']}',
+                        width: 85,
+                        height: 85,
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'ESCANEAR PARA DEVOLUCIÓN',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 7,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Spacer(),
+                pw.Divider(thickness: 1, color: PdfColors.grey300),
+                pw.SizedBox(height: 6),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.start,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Firma del Responsable (Digital):',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 8,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Container(
+                          width: 160,
+                          height: 80,
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                          ),
+                          child: pw.Center(
+                            child: pw.Image(pw.MemoryImage(firmaBytes), fit: pw.BoxFit.contain),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final pdfBytes = await pdf.save();
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (kIsWeb) {
+          await PdfDownloadHelper.downloadPdf(
+            bytes: pdfBytes,
+            filename: 'Vale_Digital_VALE_$folioStr.pdf',
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PdfViewerScreen(
+                title: 'Vale Digital VALE-$folioStr',
+                pdfBytes: pdfBytes,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al reconstruir el vale: ${e.toString()}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   void _mostrarDetalleMovimiento(Map<String, dynamic> m) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tipo = m['tipo'] as String;
     final folio = m['folio'] ?? 0;
-    final folioStr = tipo == 'ENTRADA' ? 'E-${folio.toString().padLeft(6, '0')}' : 'VALE-${folio.toString().padLeft(6, '0')}';
+    final folioStr = tipo == 'ENTRADA'
+        ? 'E-${folio.toString().padLeft(6, '0')}'
+        : 'VALE-${folio.toString().padLeft(6, '0')}';
     final fecha = DateTime.parse(m['fecha']).toLocal().toString().split('.')[0];
-    final toolName = m['herramientas']?['nombre'] ?? 'Herramienta no identificada';
+    final toolName =
+        m['herramientas']?['nombre'] ?? 'Herramienta no identificada';
     final hasBeenEdited = m['observacion_edicion'] != null;
 
     showModalBottomSheet(
@@ -85,12 +332,20 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
               children: [
                 Text(
                   folioStr,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: tipo == 'ENTRADA' ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
+                    color: tipo == 'ENTRADA'
+                        ? Colors.green.withValues(alpha: 0.15)
+                        : Colors.red.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -98,7 +353,9 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: tipo == 'ENTRADA' ? Colors.green.shade700 : Colors.red.shade700,
+                      color: tipo == 'ENTRADA'
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
                     ),
                   ),
                 ),
@@ -110,13 +367,26 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
 
             _buildDetailRow('Herramienta:', toolName),
             _buildDetailRow('Cantidad:', '${m['cantidad']} uds'),
-            _buildDetailRow('Motivo:', m['motivo'].toString().replaceAll('_', ' ')),
-            if (m['precio_unitario'] != null && (double.tryParse(m['precio_unitario'].toString()) ?? 0.0) > 0.0)
-              _buildDetailRow('Precio Unitario:', '\$${double.parse(m['precio_unitario'].toString()).toStringAsFixed(2)}'),
-            _buildDetailRow('Responsable:', m['responsable_nombre'] ?? 'Sin asignar'),
-            _buildDetailRow('Matrícula / ID:', m['matricula'] ?? 'Sin matrícula'),
+            _buildDetailRow(
+              'Motivo:',
+              m['motivo'].toString().replaceAll('_', ' '),
+            ),
+            if (m['precio_unitario'] != null &&
+                (double.tryParse(m['precio_unitario'].toString()) ?? 0.0) > 0.0)
+              _buildDetailRow(
+                'Precio Unitario:',
+                '\$${double.parse(m['precio_unitario'].toString()).toStringAsFixed(2)}',
+              ),
+            _buildDetailRow(
+              'Responsable:',
+              m['responsable_nombre'] ?? 'Sin asignar',
+            ),
+            _buildDetailRow(
+              'Matrícula / ID:',
+              m['matricula'] ?? 'Sin matrícula',
+            ),
             _buildDetailRow('Fecha / Hora:', fecha),
-            
+
             if (hasBeenEdited) ...[
               const SizedBox(height: 12),
               Container(
@@ -124,18 +394,27 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: colors.primary.withValues(alpha: 0.15)),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.15),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: colors.primary),
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: colors.primary,
+                        ),
                         const SizedBox(width: 6),
                         const Text(
                           'Registro Editado (Auditoría)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -148,7 +427,10 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                       const SizedBox(height: 4),
                       Text(
                         'Fecha de corrección: ${DateTime.parse(m['fecha_edicion']).toLocal().toString().split('.')[0]}',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ],
@@ -157,7 +439,27 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
             ],
 
             const SizedBox(height: 24),
-            
+
+            if (m['prestamos'] != null) ...[
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // cerrar sheet
+                  _reconstruirVale(m);
+                },
+                icon: const Icon(Icons.picture_as_pdf_rounded),
+                label: const Text('Ver Vale Digital (PDF)'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: colors.primaryContainer,
+                  foregroundColor: colors.onPrimaryContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             // Botón de Editar (sólo para administradores)
             if (_authRepository.isAdmin)
               ElevatedButton.icon(
@@ -169,7 +471,9 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                 label: const Text('Corregir / Editar Registro'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
           ],
@@ -184,7 +488,14 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey, fontSize: 14)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -213,7 +524,11 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
             return AlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.edit_note_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+                  Icon(
+                    Icons.edit_note_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 28,
+                  ),
                   const SizedBox(width: 12),
                   const Text('Editar Movimiento'),
                 ],
@@ -227,14 +542,22 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                     children: [
                       Text(
                         'Herramienta: ${m['herramientas']?['nombre'] ?? 'N/A'}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: qtyController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Cantidad'),
-                        validator: (v) => (v == null || int.tryParse(v) == null || int.parse(v) <= 0)
+                        decoration: const InputDecoration(
+                          labelText: 'Cantidad',
+                        ),
+                        validator: (v) =>
+                            (v == null ||
+                                int.tryParse(v) == null ||
+                                int.parse(v) <= 0)
                             ? 'Ingresa una cantidad mayor a 0'
                             : null,
                       ),
@@ -244,13 +567,28 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                         decoration: const InputDecoration(labelText: 'Motivo'),
                         items: tipo == 'ENTRADA'
                             ? const [
-                                DropdownMenuItem(value: 'COMPRA_NUEVA', child: Text('COMPRA NUEVA')),
-                                DropdownMenuItem(value: 'DEVOLUCION_PRESTAMO', child: Text('DEVOLUCIÓN DE PRÉSTAMO')),
+                                DropdownMenuItem(
+                                  value: 'COMPRA_NUEVA',
+                                  child: Text('COMPRA NUEVA'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'DEVOLUCION_PRESTAMO',
+                                  child: Text('DEVOLUCIÓN DE PRÉSTAMO'),
+                                ),
                               ]
                             : const [
-                                DropdownMenuItem(value: 'PRESTAMO_ALUMNO_PROFESOR', child: Text('PRÉSTAMO A ALUMNO/PROFESOR')),
-                                DropdownMenuItem(value: 'BAJA_DESCOMPOSTURA', child: Text('BAJA POR DESCOMPOSTURA')),
-                                DropdownMenuItem(value: 'BAJA_PERDIDA', child: Text('BAJA POR PÉRDIDA')),
+                                DropdownMenuItem(
+                                  value: 'PRESTAMO_ALUMNO_PROFESOR',
+                                  child: Text('PRÉSTAMO A ALUMNO/PROFESOR'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'BAJA_DESCOMPOSTURA',
+                                  child: Text('BAJA POR DESCOMPOSTURA'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'BAJA_PERDIDA',
+                                  child: Text('BAJA POR PÉRDIDA'),
+                                ),
                               ],
                         onChanged: (v) => setDialogState(() => motivo = v!),
                       ),
@@ -280,7 +618,7 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                     if (!formKey.currentState!.validate()) return;
                     final messenger = ScaffoldMessenger.of(context);
                     final nav = Navigator.of(context);
-                    
+
                     nav.pop(); // Cerrar diálogo
 
                     setState(() => _isLoading = true);
@@ -294,7 +632,9 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                       _cargarHistorial();
                       messenger.showSnackBar(
                         const SnackBar(
-                          content: Text('Movimiento corregido y stock actualizado.'),
+                          content: Text(
+                            'Movimiento corregido y stock actualizado.',
+                          ),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -306,7 +646,11 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                         builder: (context) => AlertDialog(
                           title: const Row(
                             children: [
-                              Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
+                              Icon(
+                                Icons.error_outline_rounded,
+                                color: Colors.red,
+                                size: 28,
+                              ),
                               SizedBox(width: 12),
                               Text('Error de Inventario'),
                             ],
@@ -320,7 +664,7 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                             TextButton(
                               onPressed: () => Navigator.pop(context),
                               child: const Text('Cerrar'),
-                            )
+                            ),
                           ],
                         ),
                       );
@@ -340,7 +684,10 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Historial de Movimientos', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Historial de Movimientos',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: Column(
         children: [
@@ -354,12 +701,17 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                         ? ListView(
                             children: [
                               SizedBox(
-                                height: MediaQuery.of(context).size.height * 0.7,
+                                height:
+                                    MediaQuery.of(context).size.height * 0.7,
                                 child: Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.history_toggle_off_rounded, size: 64, color: Colors.grey.shade400),
+                                      Icon(
+                                        Icons.history_toggle_off_rounded,
+                                        size: 64,
+                                        color: Colors.grey.shade400,
+                                      ),
                                       const SizedBox(height: 16),
                                       const Text(
                                         'No hay transacciones de inventario registradas.',
@@ -381,19 +733,30 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                                   final m = _movimientos[index];
                                   final tipo = m['tipo'] as String;
                                   final folio = m['folio'] ?? 0;
-                                  final folioStr = tipo == 'ENTRADA' ? 'E-${folio.toString().padLeft(6, '0')}' : 'VALE-${folio.toString().padLeft(6, '0')}';
-                                  final dateStr = DateTime.parse(m['fecha']).toLocal().toString().split(' ')[0];
-                                  final toolName = m['herramientas']?['nombre'] ?? 'N/A';
-                                  final wasEdited = m['observacion_edicion'] != null;
+                                  final folioStr = tipo == 'ENTRADA'
+                                      ? 'E-${folio.toString().padLeft(6, '0')}'
+                                      : 'VALE-${folio.toString().padLeft(6, '0')}';
+                                  final dateStr = DateTime.parse(
+                                    m['fecha'],
+                                  ).toLocal().toString().split(' ')[0];
+                                  final toolName =
+                                      m['herramientas']?['nombre'] ?? 'N/A';
+                                  final wasEdited =
+                                      m['observacion_edicion'] != null;
 
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(12),
                                       onTap: () => _mostrarDetalleMovimiento(m),
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 14,
+                                        ),
                                         child: Row(
                                           children: [
                                             // Icono indicador Entrada/Salida
@@ -401,43 +764,71 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                                               padding: const EdgeInsets.all(10),
                                               decoration: BoxDecoration(
                                                 color: tipo == 'ENTRADA'
-                                                    ? Colors.green.withValues(alpha: 0.12)
-                                                    : Colors.red.withValues(alpha: 0.12),
+                                                    ? Colors.green.withValues(
+                                                        alpha: 0.12,
+                                                      )
+                                                    : Colors.red.withValues(
+                                                        alpha: 0.12,
+                                                      ),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Icon(
-                                                tipo == 'ENTRADA' ? Icons.login_rounded : Icons.logout_rounded,
-                                                color: tipo == 'ENTRADA' ? Colors.green : Colors.red,
+                                                tipo == 'ENTRADA'
+                                                    ? Icons.login_rounded
+                                                    : Icons.logout_rounded,
+                                                color: tipo == 'ENTRADA'
+                                                    ? Colors.green
+                                                    : Colors.red,
                                                 size: 20,
                                               ),
                                             ),
                                             const SizedBox(width: 16),
-                                            
+
                                             // Información de transacción
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Row(
                                                     children: [
                                                       Text(
                                                         folioStr,
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: Colors.grey,
+                                                        ),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       if (wasEdited)
                                                         Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 6,
+                                                                vertical: 2,
+                                                              ),
                                                           decoration: BoxDecoration(
-                                                            color: Colors.amber.withValues(alpha: 0.15),
-                                                            borderRadius: BorderRadius.circular(4),
+                                                            color: Colors.amber
+                                                                .withValues(
+                                                                  alpha: 0.15,
+                                                                ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  4,
+                                                                ),
                                                           ),
                                                           child: Text(
                                                             'Corregido',
                                                             style: TextStyle(
                                                               fontSize: 10,
-                                                              fontWeight: FontWeight.bold,
-                                                              color: Colors.amber.shade900,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color: Colors
+                                                                  .amber
+                                                                  .shade900,
                                                             ),
                                                           ),
                                                         ),
@@ -446,33 +837,46 @@ class _HistorialMovimientosScreenState extends State<HistorialMovimientosScreen>
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     toolName,
-                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     'Responsable: ${m['responsable_nombre'] ?? 'Sin asignar'}',
-                                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
                                             ),
-                                            
+
                                             // Cantidad
                                             Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.end,
                                               children: [
                                                 Text(
                                                   '${tipo == 'ENTRADA' ? '+' : '-'}${m['cantidad']}',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 18,
-                                                    color: tipo == 'ENTRADA' ? Colors.green.shade700 : Colors.red.shade700,
+                                                    color: tipo == 'ENTRADA'
+                                                        ? Colors.green.shade700
+                                                        : Colors.red.shade700,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   dateStr,
-                                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey,
+                                                  ),
                                                 ),
                                               ],
                                             ),

@@ -6,6 +6,7 @@ import '../../auth/presentation/login_screen.dart';
 import '../../herramientas_catalogo/presentation/herramientas_list.dart';
 import '../../movimientos_qr/presentation/scanner_view.dart';
 import '../../movimientos_qr/presentation/historial_movimientos_screen.dart';
+import '../../movimientos_qr/presentation/deudores_list_screen.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/widgets/offline_banner.dart';
 
@@ -59,26 +60,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final client = SupabaseClientHelper.client;
 
-      // 1. Obtener total de herramientas
-      final countRes = await client.from('herramientas').select('stock');
+      // 1. Obtener total de herramientas (solo activas)
+      final countRes = await client.from('herramientas').select('stock').eq('activo', true);
       int total = 0;
       for (var row in countRes) {
         total += (row['stock'] as int);
       }
 
-      // 2. Obtener préstamos activos (Movimientos de salida por préstamo - devoluciones de préstamo)
-      final movimientos = await client
-          .from('movimientos')
-          .select('tipo, motivo, cantidad');
+      // 2. Obtener préstamos activos de la tabla 'prestamos'
+      final prestamosRes = await client
+          .from('prestamos')
+          .select('cantidad, cantidad_devuelta')
+          .neq('estado', 'DEVUELTO');
+      
       int prestadas = 0;
-      for (var m in movimientos) {
-        if (m['tipo'] == 'SALIDA' &&
-            m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR') {
-          prestadas += (m['cantidad'] as int);
-        } else if (m['tipo'] == 'ENTRADA' &&
-            m['motivo'] == 'DEVOLUCION_PRESTAMO') {
-          prestadas -= (m['cantidad'] as int);
-        }
+      for (var p in prestamosRes) {
+        final cant = p['cantidad'] as int? ?? 0;
+        final dev = p['cantidad_devuelta'] as int? ?? 0;
+        prestadas += (cant - dev);
       }
 
       if (mounted) {
@@ -152,6 +151,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       value: '$_prestamosActivos',
                                       icon: Icons.handshake_outlined,
                                       color: Colors.amber.shade700,
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const DeudoresListScreen(),
+                                          ),
+                                        );
+                                        _cargarMetricas(background: true);
+                                      },
                                     ),
                                   ),
                                 ],
@@ -174,6 +182,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 icon: Icons.qr_code_scanner_rounded,
                                 color: colors.primary,
                                 onTap: () => _mostrarMenuScanner(context),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildActionButton(
+                                title: 'Préstamos Activos (Deudores)',
+                                subtitle:
+                                    'Ver alumnos/profesores con herramientas pendientes',
+                                icon: Icons.people_outline_rounded,
+                                color: Colors.amber.shade800,
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const DeudoresListScreen(),
+                                    ),
+                                  );
+                                  _cargarMetricas(background: true);
+                                },
                               ),
                               const SizedBox(height: 16),
                               _buildActionButton(
@@ -365,26 +390,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String value,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
   }) {
     return Card(
       elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 16),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 32),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
+                  if (onTap != null)
+                    Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade400, size: 20),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ),
     );

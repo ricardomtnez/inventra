@@ -31,54 +31,209 @@ class _ScannerViewState extends State<ScannerView> {
     _scannerController.stop();
 
     try {
-      final uri = Uri.parse(rawUrl);
-      final toolId = uri.queryParameters['id'];
-
-      if (toolId == null || toolId.isEmpty) {
-        throw Exception('El código QR no contiene un ID de herramienta válido.');
-      }
-
       final client = SupabaseClientHelper.client;
-      final tool = await client
-          .from('herramientas')
-          .select('*, ubicaciones(nombre), unidades_medida(nombre, abreviatura)')
-          .eq('id', toolId)
-          .single();
 
-      if (!mounted) return;
+      if (rawUrl.startsWith('INVENTRA_PRESTAMO:')) {
+        final prestamoId = rawUrl.substring('INVENTRA_PRESTAMO:'.length).trim();
+        if (prestamoId.isEmpty) {
+          throw Exception('Código de préstamo no válido.');
+        }
 
-      final res = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RegistrarMovimientoScreen(
-            herramienta: tool,
-            tipoInicial: widget.defaultTipo,
+        final loan = await client
+            .from('prestamos')
+            .select('*, herramientas(*, ubicaciones(nombre), unidades_medida(nombre, abreviatura))')
+            .eq('id', prestamoId)
+            .single();
+
+        if (loan['estado'] == 'DEVUELTO') {
+          final String fechaDev = loan['fecha_devolucion'] != null
+              ? _formatFechaDev(loan['fecha_devolucion'])
+              : 'recientemente';
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Row(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, color: Colors.green.shade700, size: 28),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text('Préstamo Finalizado'),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Este vale de préstamo (VALE-${loan['folio'].toString().padLeft(6, '0')}) ya ha sido devuelto por completo.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Responsable: ${loan['responsable_nombre']}'),
+                    Text('Herramienta: ${loan['herramientas']?['nombre'] ?? ''}'),
+                    Text('Fecha de devolución: $fechaDev'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Aceptar'),
+                  ),
+                ],
+              ),
+            );
+          }
+          _reactivarEscaner();
+          return;
+        }
+
+        final tool = loan['herramientas'];
+        if (tool == null) {
+          throw Exception('No se encontró la herramienta vinculada a este préstamo.');
+        }
+
+        if (!mounted) return;
+
+        final res = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RegistrarMovimientoScreen(
+              herramienta: tool,
+              tipoInicial: 'ENTRADA',
+              prestamoInicial: loan,
+            ),
           ),
-        ),
-      );
+        );
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (res == true) {
-        Navigator.pop(context, true);
+        if (res == true) {
+          Navigator.pop(context, true);
+        } else {
+          _reactivarEscaner();
+        }
       } else {
-        _reactivarEscaner();
+        String? toolId;
+        final uuidRegExp = RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+        
+        if (uuidRegExp.hasMatch(rawUrl.trim())) {
+          toolId = rawUrl.trim();
+        } else {
+          try {
+            final uri = Uri.parse(rawUrl);
+            toolId = uri.queryParameters['id'];
+          } catch (_) {}
+        }
+
+        if (toolId == null || toolId.isEmpty) {
+          throw Exception('El código QR no contiene un ID de herramienta o préstamo válido.');
+        }
+
+        final tool = await client
+            .from('herramientas')
+            .select('*, ubicaciones(nombre), unidades_medida(nombre, abreviatura)')
+            .eq('id', toolId)
+            .single();
+
+        if (!mounted) return;
+
+        final res = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RegistrarMovimientoScreen(
+              herramienta: tool,
+              tipoInicial: widget.defaultTipo,
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+
+        if (res == true) {
+          Navigator.pop(context, true);
+        } else {
+          _reactivarEscaner();
+        }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al procesar QR: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      
+      String errorMsg = 'El código QR escaneado no es válido o no pertenece a ninguna herramienta de Inventra.';
+      if (e.toString().contains('connection') || e.toString().contains('network')) {
+        errorMsg = 'Error de conexión. Por favor, verifique su conexión a internet.';
+      }
+      
+      await _mostrarDialogoQrInvalido(errorMsg);
       _reactivarEscaner();
     }
+  }
+
+  Future<void> _mostrarDialogoQrInvalido(String mensaje) async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Código QR No Válido',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mensaje,
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Asegúrate de escanear un vale de préstamo de Inventra o el código QR de una herramienta registrada en el sistema.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _reactivarEscaner() {
     setState(() => _isProcessing = false);
     _scannerController.start();
+  }
+
+  String _formatFechaDev(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      final monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      final day = dt.day.toString().padLeft(2, '0');
+      final month = monthNames[dt.month - 1];
+      final year = dt.year;
+      final hour = dt.hour.toString().padLeft(2, '0');
+      final min = dt.minute.toString().padLeft(2, '0');
+      return '$day/$month/$year $hour:$min';
+    } catch (e) {
+      return dateStr.split('.')[0];
+    }
   }
 
   Future<void> _mostrarSeleccionManual() async {

@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS public.herramientas (
     costo_promedio NUMERIC(12,2) NOT NULL DEFAULT 0.00 CHECK (costo_promedio >= 0),
     ubicacion_id UUID REFERENCES public.ubicaciones(id) ON DELETE SET NULL,
     foto_url TEXT,
+    activo BOOLEAN NOT NULL DEFAULT true,
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

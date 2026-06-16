@@ -38,6 +38,14 @@ class _PublicToolDetailScreenState extends State<PublicToolDetailScreen> {
           .eq('id', widget.herramientaId)
           .single();
 
+      if (res['activo'] == false) {
+        setState(() {
+          _error = 'Esta herramienta ha sido dada de baja del catálogo y no se encuentra activa.';
+          _isLoading = false;
+        });
+        return;
+      }
+
       setState(() {
         _herramienta = res;
         _isLoading = false;

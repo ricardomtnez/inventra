@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -16,11 +19,13 @@ import '../../../core/utils/pdf_download_helper.dart';
 class RegistrarMovimientoScreen extends StatefulWidget {
   final Map<String, dynamic> herramienta;
   final String? tipoInicial;
+  final Map<String, dynamic>? prestamoInicial;
 
   const RegistrarMovimientoScreen({
     super.key,
     required this.herramienta,
     this.tipoInicial,
+    this.prestamoInicial,
   });
 
   @override
@@ -34,14 +39,27 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
   final _responsableController = TextEditingController();
   final _matriculaController = TextEditingController();
   final _observacionesController = TextEditingController();
+  final _folioController = TextEditingController();
   final _picker = ImagePicker();
+  
+  final _qtyFocus = FocusNode();
+  final _priceFocus = FocusNode();
+  final _responsableFocus = FocusNode();
+  final _matriculaFocus = FocusNode();
+  final _observacionesFocus = FocusNode();
+  final _folioFocus = FocusNode();
+  
+  bool _isFolioValidating = false;
+  String? _folioValidationResult;
   
   String _tipo = 'SALIDA';
   String _motivo = 'PRESTAMO_ALUMNO_PROFESOR';
   Uint8List? _firmaBytes;
   Uint8List? _ineBytes;
+  bool _isIneVertical = false;
   bool _isSaving = false;
   Map<String, dynamic>? _currentProfile;
+  String? _prestamoId;
 
   bool _isScrollEnabled = true;
   bool _hasAttemptedSubmit = false;
@@ -57,7 +75,19 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         _motivo = 'PRESTAMO_ALUMNO_PROFESOR';
       }
     }
-    _obtenerPerfilUsuario();
+    if (widget.prestamoInicial != null) {
+      _tipo = 'ENTRADA';
+      _motivo = 'DEVOLUCION_PRESTAMO';
+      _responsableController.text = widget.prestamoInicial!['responsable_nombre'] ?? '';
+      _matriculaController.text = widget.prestamoInicial!['matricula'] ?? '';
+      final pendingQty = (widget.prestamoInicial!['cantidad'] as int) - (widget.prestamoInicial!['cantidad_devuelta'] as int);
+      _qtyController.text = pendingQty.toString();
+      _prestamoId = widget.prestamoInicial!['id'];
+      _folioController.text = 'VALE-${widget.prestamoInicial!['folio'].toString().padLeft(6, '0')}';
+      _folioValidationResult = 'VÁLIDO: Préstamo cargado.';
+    } else {
+      _obtenerPerfilUsuario();
+    }
   }
 
   @override
@@ -67,6 +97,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     _responsableController.dispose();
     _matriculaController.dispose();
     _observacionesController.dispose();
+    _folioController.dispose();
+    
+    _qtyFocus.dispose();
+    _priceFocus.dispose();
+    _responsableFocus.dispose();
+    _matriculaFocus.dispose();
+    _observacionesFocus.dispose();
+    _folioFocus.dispose();
     super.dispose();
   }
 
@@ -88,13 +126,87 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error obteniendo perfil: $e');
+      debugPrint('Error obtaining profile: $e');
+    }
+  }
+
+  Future<void> _validarFolio() async {
+    final folioText = _folioController.text.trim();
+    if (folioText.isEmpty) return;
+
+    final regExp = RegExp(r'\d+');
+    final match = regExp.firstMatch(folioText);
+    if (match == null) {
+      setState(() {
+        _folioValidationResult = 'El formato del folio no es válido.';
+      });
+      return;
+    }
+    final int? folioVal = int.tryParse(match.group(0)!);
+    if (folioVal == null) {
+      setState(() {
+        _folioValidationResult = 'Folio no válido.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isFolioValidating = true;
+      _folioValidationResult = null;
+    });
+
+    try {
+      final client = SupabaseClientHelper.client;
+      final queryRes = await client
+          .from('prestamos')
+          .select('*, herramientas(*)')
+          .eq('folio', folioVal)
+          .eq('herramienta_id', widget.herramienta['id'])
+          .single();
+      
+      if (queryRes['estado'] == 'DEVUELTO') {
+        setState(() {
+          _folioValidationResult = 'Este préstamo ya ha sido devuelto por completo.';
+          _prestamoId = null;
+        });
+        return;
+      }
+
+      setState(() {
+        _prestamoId = queryRes['id'];
+        _responsableController.text = queryRes['responsable_nombre'] ?? '';
+        _matriculaController.text = queryRes['matricula'] ?? '';
+        final pendingQty = (queryRes['cantidad'] as int) - (queryRes['cantidad_devuelta'] as int);
+        _qtyController.text = pendingQty.toString();
+        _folioValidationResult = 'VÁLIDO: Préstamo de ${queryRes['responsable_nombre']} encontrado.';
+      });
+    } catch (e) {
+      setState(() {
+        _folioValidationResult = 'No se encontró un préstamo activo para esta herramienta con ese folio.';
+        _prestamoId = null;
+      });
+    } finally {
+      setState(() {
+        _isFolioValidating = false;
+      });
     }
   }
 
 
 
+  void _unfocusAll() {
+    _qtyFocus.unfocus();
+    _priceFocus.unfocus();
+    _responsableFocus.unfocus();
+    _matriculaFocus.unfocus();
+    _observacionesFocus.unfocus();
+    _folioFocus.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   Future<void> _capturarIne(ImageSource source) async {
+    _unfocusAll();
+    await Future.delayed(const Duration(milliseconds: 150));
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -104,8 +216,15 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
       );
       if (pickedFile != null) {
         final bytes = await pickedFile.readAsBytes();
+        
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        final width = frame.image.width;
+        final height = frame.image.height;
+        
         setState(() {
           _ineBytes = bytes;
+          _isIneVertical = height > width;
         });
       }
     } catch (e) {
@@ -118,6 +237,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
   }
 
   void _mostrarOpcionesIne() {
+    _unfocusAll();
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -145,6 +265,84 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     );
   }
 
+  void _verIdentificacionCompleta() {
+    if (_ineBytes == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: const SizedBox(),
+                title: const Text(
+                  'Vista de Identificación',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        _ineBytes!,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.zoom_in_rounded, color: Colors.white70, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Pellizca la imagen para hacer zoom',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _generateUuid() {
+    final random = Random.secure();
+    final values = List<int>.generate(16, (i) => random.nextInt(256));
+    values[6] = (values[6] & 0x0f) | 0x40; // set version 4
+    values[8] = (values[8] & 0x3f) | 0x80; // set variant 10
+    final buffer = StringBuffer();
+    for (var i = 0; i < 16; i++) {
+      if (i == 4 || i == 6 || i == 8 || i == 10) {
+        buffer.write('-');
+      }
+      buffer.write(values[i].toRadixString(16).padLeft(2, '0'));
+    }
+    return buffer.toString();
+  }
+
   Future<void> _procesarTransaccion() async {
     setState(() {
       _hasAttemptedSubmit = true;
@@ -153,7 +351,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     if (_tipo == 'SALIDA') {
       if (_firmaBytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Firma obligatoria para registrar la salida (Recuerde presionar ACEPTAR para guardar la firma)')),
+          const SnackBar(content: Text('La firma del responsable es obligatoria para registrar la salida')),
         );
         return;
       }
@@ -184,43 +382,305 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
       }
 
       final isOffline = ConnectivityService().isOffline.value;
-      int folio;
-      String dateStr;
+      int folio = 0;
+      String dateStr = '';
+      String? prestamoId = _prestamoId;
+      int? prestamoFolio;
 
-      if (isOffline) {
-        final movData = {
-          'herramienta_id': widget.herramienta['id'],
-          'tipo': _tipo,
-          'motivo': _motivo,
-          'cantidad': int.parse(_qtyController.text),
-          'precio_unitario': _motivo == 'COMPRA_NUEVA' ? (double.tryParse(_priceController.text) ?? 0.00) : 0.00,
-          'responsable_nombre': _responsableController.text.trim(),
-          'matricula': _matriculaController.text.trim(),
-          'entregado_por_nombre': entregadoPorNombre,
-          'entregado_por_uid': entregadoPorUid,
-          'observaciones': _observacionesController.text.trim(),
-        };
-        await SyncService().encolarMovimiento(movData);
-        folio = DateTime.now().millisecondsSinceEpoch % 100000;
-        dateStr = DateTime.now().toString().split('.')[0];
+      final currentQty = int.parse(_qtyController.text);
+      final responsable = _responsableController.text.trim();
+      final matricula = _matriculaController.text.trim();
+      final observaciones = _observacionesController.text.trim();
+
+      if (_tipo == 'SALIDA') {
+        if (_motivo == 'PRESTAMO_ALUMNO_PROFESOR') {
+          final String signatureBase64 = base64Encode(_firmaBytes!);
+          if (isOffline) {
+            prestamoId = _generateUuid();
+            prestamoFolio = DateTime.now().millisecondsSinceEpoch % 100000;
+            
+            final prestamoData = {
+              'id': prestamoId,
+              'herramienta_id': widget.herramienta['id'],
+              'cantidad': currentQty,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'firma_base64': signatureBase64,
+              'observaciones': observaciones,
+              'estado': 'ACTIVO',
+            };
+            await SyncService().encolarOperacion('prestamos', prestamoData);
+            
+            final movData = {
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': 0.0,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+              'prestamo_id': prestamoId,
+            };
+            await SyncService().encolarOperacion('movimientos', movData);
+            
+            folio = DateTime.now().millisecondsSinceEpoch % 100000;
+            dateStr = DateTime.now().toString().split('.')[0];
+          } else {
+            // Online
+            final prestamoRes = await client.from('prestamos').insert({
+              'herramienta_id': widget.herramienta['id'],
+              'cantidad': currentQty,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'firma_base64': signatureBase64,
+              'observaciones': observaciones,
+              'estado': 'ACTIVO',
+            }).select('id, folio').single();
+            
+            prestamoId = prestamoRes['id'];
+            prestamoFolio = prestamoRes['folio'];
+
+            final insertRes = await client.from('movimientos').insert({
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': 0.0,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+              'prestamo_id': prestamoId,
+            }).select('folio, fecha').single();
+
+            folio = insertRes['folio'] ?? 0;
+            final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+            dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+          }
+        } else {
+          // Salida por otros motivos (Baja descompostura, Baja perdida)
+          if (isOffline) {
+            final movData = {
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': 0.0,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+            };
+            await SyncService().encolarOperacion('movimientos', movData);
+            folio = DateTime.now().millisecondsSinceEpoch % 100000;
+            dateStr = DateTime.now().toString().split('.')[0];
+          } else {
+            final insertRes = await client.from('movimientos').insert({
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': 0.0,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+            }).select('folio, fecha').single();
+
+            folio = insertRes['folio'] ?? 0;
+            final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+            dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+          }
+        }
       } else {
-        // Registrar Movimiento en Base de Datos
-        final insertRes = await client.from('movimientos').insert({
-          'herramienta_id': widget.herramienta['id'],
-          'tipo': _tipo,
-          'motivo': _motivo,
-          'cantidad': int.parse(_qtyController.text),
-          'precio_unitario': _motivo == 'COMPRA_NUEVA' ? (double.tryParse(_priceController.text) ?? 0.00) : 0.00,
-          'responsable_nombre': _responsableController.text.trim(),
-          'matricula': _matriculaController.text.trim(),
-          'entregado_por_nombre': entregadoPorNombre,
-          'entregado_por_uid': entregadoPorUid,
-          'observaciones': _observacionesController.text.trim(),
-        }).select('folio, fecha').single();
+        // ENTRADA
+        if (_motivo == 'DEVOLUCION_PRESTAMO') {
+          if (isOffline) {
+            final movData = {
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': 0.0,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+              'prestamo_id': prestamoId,
+            };
+            await SyncService().encolarOperacion('movimientos', movData);
+            if (prestamoId != null) {
+              await SyncService().encolarOperacion(
+                'prestamos',
+                {'cantidad_devuelta_increment': currentQty},
+                op: 'update',
+                id: prestamoId,
+              );
+            }
+            folio = DateTime.now().millisecondsSinceEpoch % 100000;
+            dateStr = DateTime.now().toString().split('.')[0];
+          } else {
+            // Online
+            if (prestamoId != null) {
+              final loan = await client.from('prestamos').select('cantidad, cantidad_devuelta').eq('id', prestamoId).single();
+              final int cantTotal = loan['cantidad'] as int;
+              final int cantDevueltaAnterior = loan['cantidad_devuelta'] as int;
+              final int nuevaCantDevuelta = cantDevueltaAnterior + currentQty;
+              final int capDevuelta = nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta;
+              
+              String nuevoEstado = 'PARCIAL';
+              if (capDevuelta >= cantTotal) {
+                nuevoEstado = 'DEVUELTO';
+              }
+              
+              await client.from('prestamos').update({
+                'cantidad_devuelta': capDevuelta,
+                'estado': nuevoEstado,
+                'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
+              }).eq('id', prestamoId);
 
-        folio = insertRes['folio'] ?? 0;
-        final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
-        dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+              final insertRes = await client.from('movimientos').insert({
+                'herramienta_id': widget.herramienta['id'],
+                'tipo': _tipo,
+                'motivo': _motivo,
+                'cantidad': currentQty,
+                'precio_unitario': 0.0,
+                'responsable_nombre': responsable,
+                'matricula': matricula,
+                'entregado_por_nombre': entregadoPorNombre,
+                'entregado_por_uid': entregadoPorUid,
+                'observaciones': observaciones,
+                'prestamo_id': prestamoId,
+              }).select('folio, fecha').single();
+              
+              folio = insertRes['folio'] ?? 0;
+              final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+              dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+            } else {
+              // Buscar préstamos activos más antiguos
+              final activeLoans = await client
+                  .from('prestamos')
+                  .select('id, cantidad, cantidad_devuelta')
+                  .eq('herramienta_id', widget.herramienta['id'])
+                  .eq('matricula', matricula)
+                  .neq('estado', 'DEVUELTO')
+                  .order('fecha_prestamo', ascending: true);
+                  
+              if (activeLoans.isNotEmpty) {
+                int remainingToDevolver = currentQty;
+                String? lastUpdatedPrestamoId;
+                
+                for (final loan in activeLoans) {
+                  if (remainingToDevolver <= 0) break;
+                  
+                  final String loanId = loan['id'];
+                  final int cantTotal = loan['cantidad'] as int;
+                  final int cantDevueltaAnterior = loan['cantidad_devuelta'] as int;
+                  final int pending = cantTotal - cantDevueltaAnterior;
+                  
+                  int devolverAEsta = remainingToDevolver;
+                  if (devolverAEsta > pending) {
+                    devolverAEsta = pending;
+                  }
+                  
+                  final int nuevaCantDevuelta = cantDevueltaAnterior + devolverAEsta;
+                  String nuevoEstado = 'PARCIAL';
+                  if (nuevaCantDevuelta >= cantTotal) {
+                    nuevoEstado = 'DEVUELTO';
+                  }
+                  
+                  await client.from('prestamos').update({
+                    'cantidad_devuelta': nuevaCantDevuelta,
+                    'estado': nuevoEstado,
+                    'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
+                  }).eq('id', loanId);
+                  
+                  remainingToDevolver -= devolverAEsta;
+                  lastUpdatedPrestamoId = loanId;
+                }
+                
+                final insertRes = await client.from('movimientos').insert({
+                  'herramienta_id': widget.herramienta['id'],
+                  'tipo': _tipo,
+                  'motivo': _motivo,
+                  'cantidad': currentQty,
+                  'precio_unitario': 0.0,
+                  'responsable_nombre': responsable,
+                  'matricula': matricula,
+                  'entregado_por_nombre': entregadoPorNombre,
+                  'entregado_por_uid': entregadoPorUid,
+                  'observaciones': observaciones,
+                  'prestamo_id': lastUpdatedPrestamoId,
+                }).select('folio, fecha').single();
+                
+                folio = insertRes['folio'] ?? 0;
+                final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+                dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+              } else {
+                // No se encontró préstamo, guardar como movimiento huérfano
+                final insertRes = await client.from('movimientos').insert({
+                  'herramienta_id': widget.herramienta['id'],
+                  'tipo': _tipo,
+                  'motivo': _motivo,
+                  'cantidad': currentQty,
+                  'precio_unitario': 0.0,
+                  'responsable_nombre': responsable,
+                  'matricula': matricula,
+                  'entregado_por_nombre': entregadoPorNombre,
+                  'entregado_por_uid': entregadoPorUid,
+                  'observaciones': observaciones,
+                }).select('folio, fecha').single();
+                
+                folio = insertRes['folio'] ?? 0;
+                final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+                dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+              }
+            }
+          }
+        } else {
+          // COMPRA_NUEVA
+          if (isOffline) {
+            final movData = {
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': double.tryParse(_priceController.text) ?? 0.00,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+            };
+            await SyncService().encolarOperacion('movimientos', movData);
+            folio = DateTime.now().millisecondsSinceEpoch % 100000;
+            dateStr = DateTime.now().toString().split('.')[0];
+          } else {
+            final insertRes = await client.from('movimientos').insert({
+              'herramienta_id': widget.herramienta['id'],
+              'tipo': _tipo,
+              'motivo': _motivo,
+              'cantidad': currentQty,
+              'precio_unitario': double.tryParse(_priceController.text) ?? 0.00,
+              'responsable_nombre': responsable,
+              'matricula': matricula,
+              'entregado_por_nombre': entregadoPorNombre,
+              'entregado_por_uid': entregadoPorUid,
+              'observaciones': observaciones,
+            }).select('folio, fecha').single();
+
+            folio = insertRes['folio'] ?? 0;
+            final String fechaDb = insertRes['fecha'] ?? DateTime.now().toIso8601String();
+            dateStr = DateTime.parse(fechaDb).toLocal().toString().split('.')[0];
+          }
+        }
       }
 
       if (_tipo == 'ENTRADA') {
@@ -233,7 +693,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                 children: [
                   const Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
                   const SizedBox(width: 12),
-                  Text(isOffline ? 'Entrada Guardada Local' : 'Entrada Registrada'),
+                  Expanded(
+                    child: Text(isOffline ? 'Entrada Guardada Local' : 'Entrada Registrada'),
+                  ),
                 ],
               ),
               content: Column(
@@ -271,52 +733,119 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         final pdf = pw.Document();
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.letter,
+            pageFormat: PdfPageFormat(5.5 * PdfPageFormat.inch, 8.5 * PdfPageFormat.inch),
+            margin: const pw.EdgeInsets.all(20),
             build: (pw.Context context) {
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Header(level: 0, text: 'UNIVERSIDAD - VALE DE CONTROL DE HERRAMIENTAS'),
-                  pw.SizedBox(height: 10),
+                  pw.Center(
+                    child: pw.Text(
+                      'INVENTRA',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18, color: PdfColors.blue800),
+                    ),
+                  ),
+                  pw.Center(
+                    child: pw.Text(
+                      'VALE DE CONTROL DE HERRAMIENTAS',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.grey700),
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Divider(thickness: 1, color: PdfColors.grey300),
+                  pw.SizedBox(height: 6),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('FOLIO: VALE-${folio.toString().padLeft(6, '0')}', 
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
-                      pw.Text('Fecha/Hora: $dateStr'),
+                      pw.Text(
+                        'FOLIO: VALE-${prestamoFolio != null ? prestamoFolio.toString().padLeft(6, '0') : folio.toString().padLeft(6, '0')}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColors.red800),
+                      ),
+                      pw.Text(
+                        'Fecha: $dateStr',
+                        style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                      ),
                     ],
                   ),
-                  pw.SizedBox(height: 20),
-                  pw.Text('Tipo de movimiento: $_tipo'),
-                  pw.Text('Motivo: $_motivo'),
-                  pw.Text('Cantidad: ${_qtyController.text}'),
-                  pw.Text('Herramienta: ${widget.herramienta['nombre']}'),
-                  pw.Text('Responsable (Recibe): ${_responsableController.text}'),
-                  pw.Text('Matrícula/ID: ${_matriculaController.text}'),
-                  pw.Text('Entregado por (Operador): $entregadoPorNombre'),
-                  if (_observacionesController.text.trim().isNotEmpty) ...[
-                    pw.SizedBox(height: 5),
-                    pw.Text('Observaciones: ${_observacionesController.text.trim()}'),
+                  pw.SizedBox(height: 10),
+                  pw.Text('DETALLES DEL MOVIMIENTO:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.blue800)),
+                  pw.SizedBox(height: 4),
+                  pw.Bullet(text: 'Tipo: $_tipo', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Motivo: $_motivo', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Herramienta: ${widget.herramienta['nombre']}', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Cantidad: ${_qtyController.text} ${widget.herramienta['unidades_medida']?['abreviatura'] ?? 'Pza'}', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Responsable: $responsable', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Matrícula/ID: $matricula', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Bullet(text: 'Entregado por: $entregadoPorNombre', style: const pw.TextStyle(fontSize: 8)),
+                  if (observaciones.isNotEmpty)
+                    pw.Bullet(text: 'Observaciones: $observaciones', style: const pw.TextStyle(fontSize: 8)),
+                  if (prestamoId != null) ...[
+                    pw.SizedBox(height: 10),
+                    pw.Center(
+                      child: pw.Column(
+                        children: [
+                          pw.BarcodeWidget(
+                            barcode: pw.Barcode.qrCode(),
+                            data: 'INVENTRA_PRESTAMO:$prestamoId',
+                            width: 85,
+                            height: 85,
+                          ),
+                          pw.SizedBox(height: 3),
+                          pw.Text(
+                            'ESCANEAR PARA DEVOLUCIÓN',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7, color: PdfColors.grey700),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                  pw.SizedBox(height: 30),
+                  pw.Spacer(),
+                  pw.Divider(thickness: 1, color: PdfColors.grey300),
+                  pw.SizedBox(height: 6),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('Firma del Responsable:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                          pw.SizedBox(height: 10),
-                          pw.Image(pw.MemoryImage(_firmaBytes!), width: 150, height: 80),
+                          pw.Text('Firma del Responsable:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+                          pw.SizedBox(height: 4),
+                          pw.Container(
+                            width: 160,
+                            height: 80,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                            ),
+                            child: pw.Center(
+                              child: pw.Image(pw.MemoryImage(_firmaBytes!), fit: pw.BoxFit.contain),
+                            ),
+                          ),
                         ],
                       ),
                       if (_ineBytes != null)
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Identificación (INE/Credencial):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                            pw.SizedBox(height: 10),
-                            pw.Image(pw.MemoryImage(_ineBytes!), width: 150, height: 80),
+                            pw.Text('Identificación (INE/Credencial):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+                            pw.SizedBox(height: 4),
+                            pw.Container(
+                              width: 160,
+                              height: 100,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                              ),
+                              child: pw.Center(
+                                child: _isIneVertical
+                                    ? pw.Transform.rotate(
+                                        angle: pi / 2,
+                                        child: pw.Image(pw.MemoryImage(_ineBytes!), fit: pw.BoxFit.contain),
+                                      )
+                                    : pw.Image(pw.MemoryImage(_ineBytes!), fit: pw.BoxFit.contain),
+                              ),
+                            ),
                           ],
                         ),
                     ],
@@ -330,7 +859,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         final pdfBytes = await pdf.save();
 
         if (mounted) {
-          _mostrarDialogoValeGenerado(pdfBytes, folio, isOffline);
+          _mostrarDialogoValeGenerado(pdfBytes, folio, isOffline, prestamoFolio: prestamoFolio);
         }
       }
     } catch (e) {
@@ -344,16 +873,26 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
     }
   }
 
-  void _mostrarDialogoValeGenerado(Uint8List pdfBytes, int folio, bool isOffline) {
+  void _mostrarDialogoValeGenerado(Uint8List pdfBytes, int folio, bool isOffline, {int? prestamoFolio}) {
+    final displayFolio = prestamoFolio ?? folio;
+    final folioStr = displayFolio.toString().padLeft(6, '0');
+
+    // Capturamos el Navigator del State ANTES de abrir el diálogo para
+    // evitar el problema de shadowing de contextos y garantizar que la
+    // referencia sea válida después de que el diálogo se cierre.
+    final rootNavigator = Navigator.of(context);
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Row(
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
             const SizedBox(width: 12),
-            Text(isOffline ? 'Vale Offline: VALE-${folio.toString().padLeft(6, '0')}' : 'Vale Foliado: VALE-${folio.toString().padLeft(6, '0')}'),
+            Expanded(
+              child: Text(isOffline ? 'Vale Offline: VALE-$folioStr' : 'Vale Foliado: VALE-$folioStr'),
+            ),
           ],
         ),
         content: Column(
@@ -379,29 +918,29 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
         actions: [
           ElevatedButton.icon(
             onPressed: () async {
-              Navigator.pop(context); // cerrar diálogo
+              // Cerramos el diálogo con su propio contexto
+              Navigator.pop(dialogCtx);
+
               if (kIsWeb) {
                 await PdfDownloadHelper.downloadPdf(
                   bytes: pdfBytes,
-                  filename: 'Vale_Digital_VALE_${folio.toString().padLeft(6, '0')}.pdf',
+                  filename: 'Vale_Digital_VALE_$folioStr.pdf',
                 );
-                if (context.mounted) {
-                  Navigator.pop(context, true); // regresar al listado
-                }
+                // rootNavigator es estable porque fue capturado antes del diálogo
+                rootNavigator.popUntil((route) => route.isFirst);
               } else {
-                Navigator.push(
-                  context,
+                // Usamos await para que la lógica posterior (popUntil) se ejecute
+                // sin importar si el usuario presiona Atrás o cualquier otro método
+                // para salir del visor del PDF.
+                await rootNavigator.push(
                   MaterialPageRoute(
                     builder: (context) => PdfViewerScreen(
-                      title: 'Vale Digital VALE-${folio.toString().padLeft(6, '0')}',
+                      title: 'Vale Digital VALE-$folioStr',
                       pdfBytes: pdfBytes,
                     ),
                   ),
-                ).then((_) {
-                  if (context.mounted) {
-                    Navigator.pop(context, true); // regresar al listado
-                  }
-                });
+                );
+                rootNavigator.popUntil((route) => route.isFirst);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -418,8 +957,9 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
           Center(
             child: TextButton(
               onPressed: () {
-                Navigator.pop(context); // cerrar diálogo
-                Navigator.pop(context, true); // regresar al listado
+                // Cerramos el diálogo y navegamos directo al Dashboard
+                Navigator.pop(dialogCtx);
+                rootNavigator.popUntil((route) => route.isFirst);
               },
               child: const Text('Finalizar'),
             ),
@@ -698,24 +1238,92 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                                 DropdownMenuItem(value: 'BAJA_DESCOMPOSTURA', child: Text('BAJA POR DESCOMPOSTURA')),
                                 DropdownMenuItem(value: 'BAJA_PERDIDA', child: Text('BAJA POR PÉRDIDA')),
                               ],
-                        onChanged: (v) => setState(() => _motivo = v!),
+                        onChanged: (v) => setState(() {
+                          _motivo = v!;
+                          if (_motivo != 'DEVOLUCION_PRESTAMO') {
+                            _prestamoId = null;
+                            _folioController.clear();
+                            _folioValidationResult = null;
+                            if (_currentProfile != null) {
+                              _responsableController.text = _currentProfile!['nombre_completo'] ?? '';
+                              _matriculaController.text = _currentProfile!['matricula'] ?? SupabaseClientHelper.client.auth.currentUser?.id ?? '';
+                            }
+                          }
+                        }),
                       ),
                       const SizedBox(height: 16),
+
+                      if (_tipo == 'ENTRADA' && _motivo == 'DEVOLUCION_PRESTAMO') ...[
+                        TextFormField(
+                          controller: _folioController,
+                          focusNode: _folioFocus,
+                          keyboardType: TextInputType.text,
+                          decoration: InputDecoration(
+                            labelText: 'Folio del Préstamo (VALE-XXXX)',
+                            prefixIcon: const Icon(Icons.receipt_long_rounded),
+                            suffixIcon: _isFolioValidating
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  )
+                                : _folioValidationResult == null
+                                    ? IconButton(
+                                        icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.blue),
+                                        onPressed: _validarFolio,
+                                      )
+                                    : _folioValidationResult!.startsWith('VÁLIDO')
+                                        ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                                        : IconButton(
+                                            icon: const Icon(Icons.error_outline_rounded, color: Colors.red),
+                                            onPressed: _validarFolio,
+                                          ),
+                            helperText: _folioValidationResult,
+                            helperStyle: TextStyle(
+                              color: _folioValidationResult?.startsWith('VÁLIDO') == true ? Colors.green : Colors.red,
+                              fontWeight: _folioValidationResult?.startsWith('VÁLIDO') == true ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setState(() {
+                              _folioValidationResult = null;
+                              _prestamoId = null;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       TextFormField(
                         controller: _qtyController,
+                        focusNode: _qtyFocus,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Cantidad',
                           suffixText: widget.herramienta['unidades_medida']?['abreviatura'] ?? 'Pza',
                         ),
-                        validator: (v) => (v == null || int.tryParse(v) == null || int.parse(v) <= 0)
-                            ? 'Por favor, ingrese una cantidad mayor a 0'
-                            : null,
+                        validator: (v) {
+                          if (v == null || int.tryParse(v) == null || int.parse(v) <= 0) {
+                            return 'Por favor, ingrese una cantidad mayor a 0';
+                          }
+                          if (_tipo == 'SALIDA') {
+                            final stock = widget.herramienta['stock'] as int? ?? 0;
+                            final qty = int.parse(v);
+                            if (qty > stock) {
+                              return 'Stock insuficiente (Disponible: $stock)';
+                            }
+                          }
+                          return null;
+                        },
                       ),
                       if (_tipo == 'ENTRADA' && _motivo == 'COMPRA_NUEVA') ...[
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _priceController,
+                          focusNode: _priceFocus,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(labelText: r'Precio Unitario de Compra ($)'),
                           validator: (v) => (v == null || double.tryParse(v) == null || double.parse(v) < 0)
@@ -726,9 +1334,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _responsableController,
-                        enabled: _tipo == 'SALIDA',
+                        focusNode: _responsableFocus,
+                        enabled: _prestamoId == null && (_tipo == 'SALIDA' || _motivo == 'DEVOLUCION_PRESTAMO'),
                         decoration: InputDecoration(
-                          labelText: _tipo == 'ENTRADA' ? 'Responsable (Automático)' : 'Nombre del Responsable',
+                          labelText: _prestamoId != null
+                              ? 'Responsable (Préstamo original)'
+                              : (_tipo == 'ENTRADA' && _motivo == 'COMPRA_NUEVA'
+                                  ? 'Responsable (Automático)'
+                                  : 'Nombre del Responsable'),
                           prefixIcon: const Icon(Icons.person_outline_rounded),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
@@ -738,9 +1351,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _matriculaController,
-                        enabled: _tipo == 'SALIDA',
+                        focusNode: _matriculaFocus,
+                        enabled: _prestamoId == null && (_tipo == 'SALIDA' || _motivo == 'DEVOLUCION_PRESTAMO'),
                         decoration: InputDecoration(
-                          labelText: _tipo == 'ENTRADA' ? 'Matrícula / ID (Automático)' : 'Matrícula / ID',
+                          labelText: _prestamoId != null
+                              ? 'Matrícula / ID (Préstamo original)'
+                              : (_tipo == 'ENTRADA' && _motivo == 'COMPRA_NUEVA'
+                                  ? 'Matrícula / ID (Automático)'
+                                  : 'Matrícula / ID'),
                           prefixIcon: const Icon(Icons.badge_outlined),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
@@ -750,6 +1368,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _observacionesController,
+                        focusNode: _observacionesFocus,
                         maxLines: 3,
                         decoration: const InputDecoration(
                           labelText: 'Observaciones (Opcional)',
@@ -800,9 +1419,12 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           child: _ineBytes != null
                               ? Stack(
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(11),
-                                      child: Image.memory(_ineBytes!, width: double.infinity, height: double.infinity, fit: BoxFit.cover),
+                                    GestureDetector(
+                                      onTap: _verIdentificacionCompleta,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(11),
+                                        child: Image.memory(_ineBytes!, width: double.infinity, height: double.infinity, fit: BoxFit.cover),
+                                      ),
                                     ),
                                     Positioned(
                                       top: 8,

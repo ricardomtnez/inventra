@@ -40,6 +40,22 @@ class SyncService extends ChangeNotifier {
     await _updatePendingCount();
   }
 
+  Future<void> encolarOperacion(String table, Map<String, dynamic> data, {String op = 'insert', String? id}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_queueKey) ?? [];
+    
+    final item = {
+      'op': op,
+      'table': table,
+      'data': data,
+      if (id != null) 'id': id,
+    };
+    
+    queue.add(jsonEncode(item));
+    await prefs.setStringList(_queueKey, queue);
+    await _updatePendingCount();
+  }
+
   Future<void> sincronizarPendientes() async {
     if (_isSyncing) return;
     
@@ -53,8 +69,41 @@ class SyncService extends ChangeNotifier {
     try {
       final client = SupabaseClientHelper.client;
       for (final itemStr in queue) {
-        final Map<String, dynamic> mov = jsonDecode(itemStr);
-        await client.from('movimientos').insert(mov);
+        final Map<String, dynamic> item = jsonDecode(itemStr);
+        if (item.containsKey('op')) {
+          final String op = item['op'];
+          final String table = item['table'];
+          final Map<String, dynamic> data = item['data'];
+          if (op == 'insert') {
+            await client.from(table).insert(data);
+          } else if (op == 'update') {
+            final String id = item['id'];
+            if (data.containsKey('cantidad_devuelta_increment')) {
+              final int increment = data['cantidad_devuelta_increment'];
+              // Consultar préstamo actual
+              final loan = await client.from(table).select('cantidad, cantidad_devuelta').eq('id', id).single();
+              final int cantTotal = loan['cantidad'] as int;
+              final int cantDevueltaAnterior = loan['cantidad_devuelta'] as int;
+              final int nuevaCantDevuelta = cantDevueltaAnterior + increment;
+              
+              String nuevoEstado = 'PARCIAL';
+              if (nuevaCantDevuelta >= cantTotal) {
+                nuevoEstado = 'DEVUELTO';
+              }
+              
+              await client.from(table).update({
+                'cantidad_devuelta': nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta,
+                'estado': nuevoEstado,
+                'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
+              }).eq('id', id);
+            } else {
+              await client.from(table).update(data).eq('id', id);
+            }
+          }
+        } else {
+          // Formato heredado
+          await client.from('movimientos').insert(item);
+        }
         remainingItems.remove(itemStr);
       }
     } catch (e) {

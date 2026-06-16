@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../data/herramientas_repository.dart';
 import 'herramientas_form.dart';
 import 'qr_print_selector.dart';
+import 'papelera_screen.dart';
 import '../../movimientos_qr/presentation/registrar_movimiento_screen.dart';
 
 class HerramientasListScreen extends StatefulWidget {
@@ -17,6 +19,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   final _repository = HerramientasRepository();
   List<Map<String, dynamic>> _herramientas = [];
   bool _isLoading = true;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedToolIds = {};
 
   @override
   void initState() {
@@ -38,7 +42,10 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar catálogo: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Error al cargar catálogo: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -49,25 +56,203 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catálogo de Herramientas', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Catálogo',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_rounded),
-            tooltip: 'Imprimir Planilla de QRs',
-            onPressed: _herramientas.isEmpty
-                ? null
-                : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => QrPrintSelectorScreen(herramientas: _herramientas),
-                      ),
-                    ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) async {
+              if (value == 'papelera') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PapeleraScreen(),
+                  ),
+                );
+                _cargarHerramientas();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'papelera',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text('Papelera de Reciclaje'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
       body: Column(
         children: [
           const OfflineBanner(),
+          if (_herramientas.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _isSelectionMode = !_isSelectionMode;
+                          if (!_isSelectionMode) {
+                            _selectedToolIds.clear();
+                          }
+                        });
+                      },
+                      icon: Icon(
+                        _isSelectionMode
+                            ? Icons.close_rounded
+                            : Icons.checklist_rounded,
+                      ),
+                      label: Text(
+                        _isSelectionMode ? 'Cancelar' : 'Seleccionar Varios',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_isSelectionMode) {
+                          if (_selectedToolIds.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Selecciona al menos una herramienta',
+                                ),
+                                backgroundColor: Colors.amber,
+                              ),
+                            );
+                            return;
+                          }
+                          final seleccionadas = _herramientas
+                              .where((h) => _selectedToolIds.contains(h['id']))
+                              .toList();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => QrPrintSelectorScreen(
+                                herramientas: seleccionadas,
+                              ),
+                            ),
+                          ).then((_) {
+                            setState(() {
+                              _isSelectionMode = false;
+                              _selectedToolIds.clear();
+                            });
+                          });
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => QrPrintSelectorScreen(
+                                herramientas: _herramientas,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.qr_code_rounded),
+                      label: Text(
+                        _isSelectionMode
+                            ? 'Imprimir (${_selectedToolIds.length})'
+                            : 'Imprimir QRs',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_isSelectionMode)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_selectedToolIds.length == _herramientas.length) {
+                            _selectedToolIds.clear();
+                          } else {
+                            _selectedToolIds.addAll(
+                              _herramientas.map((h) => h['id'] as String),
+                            );
+                          }
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: Checkbox(
+                              value:
+                                  _selectedToolIds.length ==
+                                  _herramientas.length,
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    _selectedToolIds.addAll(
+                                      _herramientas.map(
+                                        (h) => h['id'] as String,
+                                      ),
+                                    );
+                                  } else {
+                                    _selectedToolIds.clear();
+                                  }
+                                });
+                              },
+                              activeColor: colors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Seleccionar todos',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${_selectedToolIds.length} seleccionados',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
           Expanded(
             child: _isLoading && _herramientas.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -77,25 +262,40 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         ? ListView(
                             children: [
                               SizedBox(
-                                height: MediaQuery.of(context).size.height * 0.7,
+                                height:
+                                    MediaQuery.of(context).size.height * 0.7,
                                 child: Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                                      const Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 64,
+                                        color: Colors.grey,
+                                      ),
                                       const SizedBox(height: 16),
-                                      const Text('No hay herramientas registradas en el catálogo.', style: TextStyle(color: Colors.grey)),
+                                      const Text(
+                                        'No hay herramientas registradas en el catálogo.',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
                                       const SizedBox(height: 16),
                                       ElevatedButton(
                                         onPressed: () async {
                                           final res = await Navigator.push(
                                             context,
-                                            MaterialPageRoute(builder: (context) => const HerramientasFormScreen()),
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const HerramientasFormScreen(),
+                                            ),
                                           );
-                                          if (res == true) _cargarHerramientas();
+                                          if (res == true) {
+                                            _cargarHerramientas();
+                                          }
                                         },
-                                        child: const Text('Registrar Primera Herramienta'),
-                                      )
+                                        child: const Text(
+                                          'Registrar Primera Herramienta',
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -103,130 +303,353 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                             ],
                           )
                         : Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _herramientas.length,
-                      itemBuilder: (context, index) {
-                        final h = _herramientas[index];
-                        final stock = h['stock'] as int;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => _mostrarDetalleHerramienta(h),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                children: [
-                                  // Foto
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: h['foto_url'] != null
-                                        ? CachedNetworkImage(
-                                            imageUrl: h['foto_url'],
-                                            width: 64,
-                                            height: 64,
-                                            fit: BoxFit.cover,
-                                            placeholder: (_, __) => Container(
-                                              width: 64,
-                                              height: 64,
-                                              color: Colors.grey.shade200,
-                                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                            ),
-                                            errorWidget: (_, __, ___) => Container(
-                                              width: 64,
-                                              height: 64,
-                                              color: Colors.grey.shade200,
-                                              child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
-                                            ),
-                                          )
-                                        : Container(
-                                            width: 64,
-                                            height: 64,
-                                            color: Colors.grey.shade200,
-                                            child: const Icon(Icons.handyman_rounded, color: Colors.grey),
-                                          ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Detalles
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          h['nombre'],
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
-                                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 800),
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _herramientas.length,
+                                itemBuilder: (context, index) {
+                                  final h = _herramientas[index];
+                                  final stock = h['stock'] as int;
+                                  final id = h['id'] as String;
+                                  final isSelected = _selectedToolIds.contains(
+                                    id,
+                                  );
+
+                                  final cardWidget = Card(
+                                    margin: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () {
+                                        if (_isSelectionMode) {
+                                          setState(() {
+                                            if (isSelected) {
+                                              _selectedToolIds.remove(id);
+                                            } else {
+                                              _selectedToolIds.add(id);
+                                            }
+                                          });
+                                        } else {
+                                          _mostrarDetalleHerramienta(h);
+                                        }
+                                      },
+                                      onLongPress: () {
+                                        if (!_isSelectionMode) {
+                                          setState(() {
+                                            _isSelectionMode = true;
+                                            _selectedToolIds.add(id);
+                                          });
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Row(
                                           children: [
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color: stock > 0 ? Colors.green : Colors.red,
-                                                shape: BoxShape.circle,
+                                            if (_isSelectionMode) ...[
+                                              Checkbox(
+                                                value: isSelected,
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    if (val == true) {
+                                                      _selectedToolIds.add(id);
+                                                    } else {
+                                                      _selectedToolIds.remove(
+                                                        id,
+                                                      );
+                                                    }
+                                                  });
+                                                },
+                                                activeColor: colors.primary,
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            // Foto
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: h['foto_url'] != null
+                                                  ? CachedNetworkImage(
+                                                      imageUrl: h['foto_url'],
+                                                      width: 64,
+                                                      height: 64,
+                                                      fit: BoxFit.cover,
+                                                      placeholder: (_, __) =>
+                                                          Container(
+                                                            width: 64,
+                                                            height: 64,
+                                                            color: Colors
+                                                                .grey
+                                                                .shade200,
+                                                            child: const Center(
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                      errorWidget:
+                                                          (
+                                                            _,
+                                                            __,
+                                                            ___,
+                                                          ) => Container(
+                                                            width: 64,
+                                                            height: 64,
+                                                            color: Colors
+                                                                .grey
+                                                                .shade200,
+                                                            child: const Icon(
+                                                              Icons
+                                                                  .broken_image_outlined,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                    )
+                                                  : Container(
+                                                      width: 64,
+                                                      height: 64,
+                                                      color:
+                                                          Colors.grey.shade200,
+                                                      child: const Icon(
+                                                        Icons.handyman_rounded,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            // Detalles
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    h['nombre'],
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    h['ubicaciones']?['nombre'] ??
+                                                        'Sin ubicación',
+                                                    style: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 8,
+                                                        height: 8,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color: stock > 0
+                                                                  ? Colors.green
+                                                                  : Colors.red,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        stock > 0
+                                                            ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disponibles'
+                                                            : 'Sin stock',
+                                                        style: TextStyle(
+                                                          color: stock > 0
+                                                              ? Colors
+                                                                    .green
+                                                                    .shade700
+                                                              : Colors
+                                                                    .red
+                                                                    .shade700,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              stock > 0 ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disponibles' : 'Sin stock',
-                                              style: TextStyle(
-                                                color: stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
+                                            // Botón de Transacción
+                                            if (!_isSelectionMode)
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.swap_horiz_rounded,
+                                                ),
+                                                color: colors.primary,
+                                                tooltip: 'Nueva Transacción',
+                                                onPressed: () =>
+                                                    _mostrarOpcionesMovimiento(
+                                                      context,
+                                                      h,
+                                                      _cargarHerramientas,
+                                                    ),
                                               ),
-                                            ),
                                           ],
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                  // Botón de Transacción
-                                  IconButton(
-                                    icon: const Icon(Icons.swap_horiz_rounded),
-                                    color: colors.primary,
-                                    tooltip: 'Nueva Transacción',
-                                    onPressed: () => _mostrarOpcionesMovimiento(context, h, _cargarHerramientas),
-                                  ),
-                                ],
+                                  );
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _isSelectionMode
+                                        ? cardWidget
+                                        : Slidable(
+                                            key: ValueKey(id),
+                                            endActionPane: ActionPane(
+                                              motion: const ScrollMotion(),
+                                              extentRatio: 0.45,
+                                              children: [
+                                                SlidableAction(
+                                                  onPressed: (context) async {
+                                                    final res = await Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            HerramientasFormScreen(
+                                                              herramienta: h,
+                                                            ),
+                                                      ),
+                                                    );
+                                                    if (res == true) {
+                                                      _cargarHerramientas();
+                                                    }
+                                                  },
+                                                  backgroundColor:
+                                                      Colors.blue.shade600,
+                                                  foregroundColor: Colors.white,
+                                                  icon: Icons.edit_rounded,
+                                                  label: 'Editar',
+                                                  borderRadius:
+                                                      const BorderRadius.horizontal(
+                                                        left: Radius.circular(
+                                                          12,
+                                                        ),
+                                                      ),
+                                                ),
+                                                SlidableAction(
+                                                  onPressed: (context) =>
+                                                      _confirmarEliminarHerramienta(
+                                                        h,
+                                                      ),
+                                                  backgroundColor:
+                                                      Colors.redAccent,
+                                                  foregroundColor: Colors.white,
+                                                  icon: Icons
+                                                      .delete_outline_rounded,
+                                                  label: 'Eliminar',
+                                                  borderRadius:
+                                                      const BorderRadius.horizontal(
+                                                        right: Radius.circular(
+                                                          12,
+                                                        ),
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                            child: cardWidget,
+                                          ),
+                                  );
+                                },
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
                   ),
-                ),
-              ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final res = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const HerramientasFormScreen()),
-          );
-          if (res == true) _cargarHerramientas();
-        },
-        child: const Icon(Icons.add_rounded),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () async {
+                final res = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HerramientasFormScreen(),
+                  ),
+                );
+                if (res == true) _cargarHerramientas();
+              },
+              child: const Icon(Icons.add_rounded),
+            ),
+    );
+  }
+
+  Future<void> _confirmarEliminarHerramienta(Map<String, dynamic> h) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar Herramienta?'),
+        content: Text(
+          '¿Desea dar de baja la herramienta "${h['nombre']}" del catálogo? Se conservará su historial en la papelera.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
       ),
     );
+
+    if (confirmar == true) {
+      try {
+        await _repository.eliminarHerramientaLogica(h['id']);
+        _cargarHerramientas();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${h['nombre']}" eliminada lógicamente.'),
+              action: SnackBarAction(
+                label: 'Deshacer',
+                onPressed: () async {
+                  await _repository.restaurarHerramientaLogica(h['id']);
+                  _cargarHerramientas();
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al eliminar: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _mostrarDetalleHerramienta(Map<String, dynamic> h) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final especificaciones = h['especificaciones'] as Map<String, dynamic>? ?? {};
+    final especificaciones =
+        h['especificaciones'] as Map<String, dynamic>? ?? {};
 
     showModalBottomSheet(
       context: context,
@@ -241,7 +664,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
               color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 15,
               spreadRadius: 2,
-            )
+            ),
           ],
         ),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -260,7 +683,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -276,20 +699,30 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                             width: 80,
                             height: 80,
                             color: Colors.grey.shade200,
-                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
                           errorWidget: (_, __, ___) => Container(
                             width: 80,
                             height: 80,
                             color: Colors.grey.shade200,
-                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 32),
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
+                              size: 32,
+                            ),
                           ),
                         )
                       : Container(
                           width: 80,
                           height: 80,
                           color: Colors.grey.shade200,
-                          child: const Icon(Icons.handyman_rounded, color: Colors.grey, size: 32),
+                          child: const Icon(
+                            Icons.handyman_rounded,
+                            color: Colors.grey,
+                            size: 32,
+                          ),
                         ),
                 ),
                 const SizedBox(width: 16),
@@ -299,17 +732,27 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     children: [
                       Text(
                         h['nombre'],
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: Colors.grey,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
-                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -324,12 +767,22 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
 
             const Divider(),
             const SizedBox(height: 10),
-            const Text('Especificaciones', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Text(
+              'Especificaciones',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
             const SizedBox(height: 10),
             _buildSpecRow('Marca:', especificaciones['marca'] ?? 'Sin marca'),
-            _buildSpecRow('Modelo:', especificaciones['modelo'] ?? 'Sin modelo'),
-            _buildSpecRow('Número de Serie:', especificaciones['n_serie'] ?? 'Sin número de serie'),
-            if (h['descripcion'] != null && h['descripcion'].toString().isNotEmpty) ...[
+            _buildSpecRow(
+              'Modelo:',
+              especificaciones['modelo'] ?? 'Sin modelo',
+            ),
+            _buildSpecRow(
+              'Número de Serie:',
+              especificaciones['n_serie'] ?? 'Sin número de serie',
+            ),
+            if (h['descripcion'] != null &&
+                h['descripcion'].toString().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 h['descripcion'],
@@ -340,7 +793,10 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
 
             const Divider(),
             const SizedBox(height: 10),
-            const Text('Resumen de Inventario y Valoración', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Text(
+              'Resumen de Inventario y Valoración',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
             const SizedBox(height: 12),
 
             FutureBuilder<Map<String, int>>(
@@ -357,7 +813,10 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 10.0),
                     child: Text(
                       'Error al cargar métricas: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                      ),
                     ),
                   );
                 }
@@ -367,7 +826,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                 final prestadas = stats['prestadas'] ?? 0;
                 final perdidas = stats['perdidas'] ?? 0;
                 final descompostura = stats['descompostura'] ?? 0;
-                final costoPromedio = double.tryParse(h['costo_promedio'].toString()) ?? 0.0;
+                final costoPromedio =
+                    double.tryParse(h['costo_promedio'].toString()) ?? 0.0;
                 final valorTotal = stock * costoPromedio;
 
                 return Column(
@@ -377,7 +837,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         Expanded(
                           child: _buildStatCard(
                             title: 'Disponibles',
-                            value: '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            value:
+                                '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
                             icon: Icons.check_circle_outline_rounded,
                             color: Colors.green,
                           ),
@@ -386,7 +847,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         Expanded(
                           child: _buildStatCard(
                             title: 'Prestados',
-                            value: '$prestadas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            value:
+                                '$prestadas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
                             icon: Icons.handshake_outlined,
                             color: Colors.amber.shade700,
                           ),
@@ -399,7 +861,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         Expanded(
                           child: _buildStatCard(
                             title: 'Bajas Pérdida',
-                            value: '$perdidas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            value:
+                                '$perdidas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
                             icon: Icons.search_off_rounded,
                             color: Colors.red.shade400,
                           ),
@@ -408,7 +871,8 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         Expanded(
                           child: _buildStatCard(
                             title: 'Bajas Daño',
-                            value: '$descompostura ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                            value:
+                                '$descompostura ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
                             icon: Icons.build_circle_outlined,
                             color: Colors.grey.shade600,
                           ),
@@ -421,7 +885,9 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                       decoration: BoxDecoration(
                         color: colors.primary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.primary.withValues(alpha: 0.15)),
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.15),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -429,22 +895,41 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Valor Total Inventariado', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const Text(
+                                'Valor Total Inventariado',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Text(
                                 '\$${valorTotal.toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colors.primary),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.primary,
+                                ),
                               ),
                             ],
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('Costo Promedio', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              const Text(
+                                'Costo Promedio',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Text(
                                 '\$${costoPromedio.toStringAsFixed(2)} c/u',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -455,13 +940,40 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                 );
               },
             ),
+            const SizedBox(height: 20),
+            SafeArea(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          QrPrintSelectorScreen(herramientas: [h]),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_rounded),
+                label: const Text('Imprimir QR'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _mostrarOpcionesMovimiento(BuildContext context, Map<String, dynamic> herramienta, VoidCallback onSuccess) {
+  void _mostrarOpcionesMovimiento(
+    BuildContext context,
+    Map<String, dynamic> herramienta,
+    VoidCallback onSuccess,
+  ) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -516,13 +1028,19 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
                         color: Colors.green.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.login_rounded, color: Colors.green, size: 32),
+                          Icon(
+                            Icons.login_rounded,
+                            color: Colors.green,
+                            size: 32,
+                          ),
                           SizedBox(height: 12),
                           Text(
                             'ENTRADA',
@@ -553,13 +1071,19 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       decoration: BoxDecoration(
-                        border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.3),
+                        ),
                         color: colors.primary.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
                         children: [
-                          Icon(Icons.logout_rounded, color: colors.primary, size: 32),
+                          Icon(
+                            Icons.logout_rounded,
+                            color: colors.primary,
+                            size: 32,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'SALIDA / PRÉSTAMO',
@@ -588,7 +1112,12 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     );
   }
 
-  void _irARegistrar(BuildContext context, Map<String, dynamic> herramienta, String tipo, VoidCallback onSuccess) async {
+  void _irARegistrar(
+    BuildContext context,
+    Map<String, dynamic> herramienta,
+    String tipo,
+    VoidCallback onSuccess,
+  ) async {
     final res = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -606,7 +1135,14 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+              fontSize: 13,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -620,7 +1156,12 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     );
   }
 
-  Widget _buildStatCard({required String title, required String value, required IconData icon, required Color color}) {
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -635,13 +1176,21 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),

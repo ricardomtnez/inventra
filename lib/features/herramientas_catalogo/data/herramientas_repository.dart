@@ -5,9 +5,25 @@ import '../../../core/supabase/supabase_client.dart';
 class HerramientasRepository {
   final SupabaseClient _client = SupabaseClientHelper.client;
 
-  Future<List<Map<String, dynamic>>> obtenerHerramientas() async {
-    final data = await _client.from('herramientas').select('*, ubicaciones(nombre), unidades_medida(nombre, abreviatura)').order('nombre');
+  Future<List<Map<String, dynamic>>> obtenerHerramientas({bool soloActivas = true}) async {
+    var query = _client.from('herramientas').select('*, ubicaciones(nombre), unidades_medida(nombre, abreviatura)');
+    if (soloActivas) {
+      query = query.eq('activo', true);
+    }
+    final data = await query.order('nombre');
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  Future<void> eliminarHerramientaLogica(String id) async {
+    await _client.from('herramientas').update({'activo': false}).eq('id', id);
+  }
+
+  Future<void> restaurarHerramientaLogica(String id) async {
+    await _client.from('herramientas').update({'activo': true}).eq('id', id);
+  }
+
+  Future<void> eliminarHerramientaPermanente(String id) async {
+    await _client.from('herramientas').delete().eq('id', id);
   }
 
   Future<List<Map<String, dynamic>>> obtenerUbicaciones() async {
@@ -128,7 +144,7 @@ class HerramientasRepository {
   Future<List<Map<String, dynamic>>> obtenerMovimientos() async {
     final data = await _client
         .from('movimientos')
-        .select('*, herramientas(nombre)')
+        .select('*, herramientas(*, ubicaciones(nombre), unidades_medida(abreviatura, nombre)), prestamos(*)')
         .order('fecha', ascending: false);
     return List<Map<String, dynamic>>.from(data);
   }
@@ -145,5 +161,27 @@ class HerramientasRepository {
       'observacion_edicion': observacionEdicion,
       'fecha_edicion': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', id);
+  }
+
+  Future<void> actualizarHerramienta({
+    required String id,
+    required String nombre,
+    required String descripcion,
+    required String? fotoUrl,
+    required String ubicacionId,
+    required String unidadMedidaId,
+    required Map<String, dynamic> especificaciones,
+  }) async {
+    final updateData = {
+      'nombre': nombre,
+      'descripcion': descripcion,
+      'ubicacion_id': ubicacionId,
+      'unidad_medida_id': unidadMedidaId,
+      'especificaciones': especificaciones,
+    };
+    if (fotoUrl != null) {
+      updateData['foto_url'] = fotoUrl;
+    }
+    await _client.from('herramientas').update(updateData).eq('id', id);
   }
 }
