@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -11,6 +12,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../core/config/app_config.dart';
 import '../../../core/presentation/pdf_viewer_screen.dart';
+import '../../../core/utils/pdf_download_helper.dart';
 
 class QrPrintSelectorScreen extends StatefulWidget {
   final List<Map<String, dynamic>> herramientas;
@@ -1037,22 +1039,30 @@ class _QrPrintSelectorScreenState extends State<QrPrintSelectorScreen> {
                               Uint8List pngBytes =
                                   byteData!.buffer.asUint8List();
 
-                              final tempDir = await getTemporaryDirectory();
-                              final file = await File(
-                                '${tempDir.path}/qr_${herramienta['nombre'].toString().replaceAll(' ', '_')}.png',
-                              ).create();
-                              await file.writeAsBytes(pngBytes);
+                              if (kIsWeb) {
+                                await PdfDownloadHelper.downloadBytes(
+                                  bytes: pngBytes,
+                                  filename: 'qr_${herramienta['nombre'].toString().replaceAll(' ', '_')}.png',
+                                  mimeType: 'image/png',
+                                );
+                              } else {
+                                final tempDir = await getTemporaryDirectory();
+                                final file = await File(
+                                  '${tempDir.path}/qr_${herramienta['nombre'].toString().replaceAll(' ', '_')}.png',
+                                ).create();
+                                await file.writeAsBytes(pngBytes);
 
-                              final params = ShareParams(
-                                text: 'Código QR de ${herramienta['nombre']}',
-                                files: [XFile(file.path)],
-                              );
-                              await SharePlus.instance.share(params);
+                                final params = ShareParams(
+                                  text: 'Código QR de ${herramienta['nombre']}',
+                                  files: [XFile(file.path)],
+                                );
+                                await SharePlus.instance.share(params);
+                              }
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Error al compartir: $e'),
+                                    content: Text(kIsWeb ? 'Error al descargar: $e' : 'Error al compartir: $e'),
                                   ),
                                 );
                               }
@@ -1060,8 +1070,8 @@ class _QrPrintSelectorScreenState extends State<QrPrintSelectorScreen> {
                               setDialogState(() => isSharing = false);
                             }
                           },
-                          icon: const Icon(Icons.share_rounded),
-                          label: const Text('Compartir Tarjeta'),
+                          icon: Icon(kIsWeb ? Icons.download_rounded : Icons.share_rounded),
+                          label: Text(kIsWeb ? 'Descargar Tarjeta' : 'Compartir Tarjeta'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,

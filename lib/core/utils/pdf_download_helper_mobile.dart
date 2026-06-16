@@ -11,4 +11,12 @@ class PdfDownloadHelper {
       filename: filename,
     );
   }
+
+  static Future<void> downloadBytes({
+    required Uint8List bytes,
+    required String filename,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    throw UnsupportedError('Descarga de bytes no soportada en móvil.');
+  }
 }

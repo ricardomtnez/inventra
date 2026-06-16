@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -25,7 +25,7 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
   final _repository = HerramientasRepository();
   final _picker = ImagePicker();
 
-  File? _imageFile;
+  Uint8List? _imageBytes;
   bool _isSaving = false;
 
   String? _selectedUbicacion;
@@ -76,8 +76,9 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
     );
 
     if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _imageFile = File(pickedFile.path);
+        _imageBytes = bytes;
       });
     }
   }
@@ -122,9 +123,9 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
 
     try {
       String? fotoUrl = widget.herramienta?['foto_url'];
-      if (_imageFile != null) {
+      if (_imageBytes != null) {
         final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-        fotoUrl = await _repository.subirFoto(_imageFile!, fileName);
+        fotoUrl = await _repository.subirFoto(_imageBytes!, fileName);
       }
 
       if (widget.herramienta != null) {
@@ -222,11 +223,11 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: Colors.grey.shade400),
                             ),
-                            child: _imageFile != null
+                            child: _imageBytes != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(15),
-                                    child: Image.file(
-                                      _imageFile!,
+                                    child: Image.memory(
+                                      _imageBytes!,
                                       fit: BoxFit.cover,
                                     ),
                                   )

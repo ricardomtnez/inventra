@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 
@@ -36,13 +36,17 @@ class HerramientasRepository {
     return List<Map<String, dynamic>>.from(data);
   }
 
-  Future<String?> subirFoto(File file, String fileName) async {
+  Future<String?> subirFoto(Uint8List bytes, String fileName) async {
     try {
       final path = 'fotos/$fileName';
-      await _client.storage.from('fotos_herramientas').upload(
+      await _client.storage.from('fotos_herramientas').uploadBinary(
         path,
-        file,
-        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+        bytes,
+        fileOptions: const FileOptions(
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'image/jpeg',
+        ),
       );
       return _client.storage.from('fotos_herramientas').getPublicUrl(path);
     } catch (e) {

@@ -84,12 +84,28 @@ class _HistorialMovimientosScreenState
 
       final estado = prestamo['estado'] as String? ?? 'ACTIVO';
 
+      String? observacionesDevolucion;
+      if (estado == 'DEVUELTO') {
+        final localReturnMovs = _movimientos.where(
+          (mov) =>
+              mov['prestamo_id'] == prestamo['id'] && mov['tipo'] == 'ENTRADA',
+        );
+        if (localReturnMovs.isNotEmpty) {
+          observacionesDevolucion = localReturnMovs
+              .map((mov) => mov['observaciones'] as String?)
+              .where((obs) => obs != null && obs.isNotEmpty)
+              .join(', ');
+        }
+      }
+
       // Si el préstamo no está devuelto (por tanto, su INE sigue existiendo en Storage)
       // intentamos descargarla para pintarla en el vale reconstruido.
       if (estado != 'DEVUELTO') {
         try {
           final String path = 'identificaciones/ine_${prestamo['id']}.jpg';
-          final responseBytes = await client.storage.from('fotos_herramientas').download(path);
+          final responseBytes = await client.storage
+              .from('fotos_herramientas')
+              .download(path);
           ineBytes = responseBytes;
 
           final codec = await ui.instantiateImageCodec(ineBytes);
@@ -149,7 +165,7 @@ class _HistorialMovimientosScreenState
                     ),
                     pw.Center(
                       child: pw.Text(
-                        'VALE DE CONTROL DE HERRAMIENTAS (RECONSTRUIDO)',
+                        'VALE DE CONTROL DE HERRAMIENTAS',
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
                           fontSize: 9,
@@ -157,6 +173,35 @@ class _HistorialMovimientosScreenState
                         ),
                       ),
                     ),
+                    if (estado == 'DEVUELTO') ...[
+                      pw.SizedBox(height: 6),
+                      pw.Center(
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: pw.BoxDecoration(
+                            color: PdfColors.green50,
+                            border: pw.Border.all(
+                              color: PdfColors.green700,
+                              width: 1.2,
+                            ),
+                            borderRadius: const pw.BorderRadius.all(
+                              pw.Radius.circular(4),
+                            ),
+                          ),
+                          child: pw.Text(
+                            'DEVUELTO / ENTREGADO',
+                            style: pw.TextStyle(
+                              color: PdfColors.green700,
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     pw.SizedBox(height: 8),
                     pw.Divider(thickness: 1, color: PdfColors.grey300),
                     pw.SizedBox(height: 6),
@@ -220,7 +265,14 @@ class _HistorialMovimientosScreenState
                     ),
                     if (observaciones.isNotEmpty)
                       pw.Bullet(
-                        text: 'Observaciones: $observaciones',
+                        text: 'Observaciones de Préstamo: $observaciones',
+                        style: const pw.TextStyle(fontSize: 8),
+                      ),
+                    if (observacionesDevolucion != null &&
+                        observacionesDevolucion.isNotEmpty)
+                      pw.Bullet(
+                        text:
+                            'Observaciones de Devolución: $observacionesDevolucion',
                         style: const pw.TextStyle(fontSize: 8),
                       ),
                     pw.SizedBox(height: 10),
@@ -267,11 +319,19 @@ class _HistorialMovimientosScreenState
                               width: 160,
                               height: 80,
                               decoration: pw.BoxDecoration(
-                                border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                border: pw.Border.all(
+                                  color: PdfColors.grey300,
+                                  width: 0.5,
+                                ),
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(4),
+                                ),
                               ),
                               child: pw.Center(
-                                child: pw.Image(pw.MemoryImage(firmaBytes), fit: pw.BoxFit.contain),
+                                child: pw.Image(
+                                  pw.MemoryImage(firmaBytes),
+                                  fit: pw.BoxFit.contain,
+                                ),
                               ),
                             ),
                           ],
@@ -292,16 +352,27 @@ class _HistorialMovimientosScreenState
                                 width: 160,
                                 height: 100,
                                 decoration: pw.BoxDecoration(
-                                  border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                  border: pw.Border.all(
+                                    color: PdfColors.grey300,
+                                    width: 0.5,
+                                  ),
+                                  borderRadius: const pw.BorderRadius.all(
+                                    pw.Radius.circular(4),
+                                  ),
                                 ),
                                 child: pw.Center(
                                   child: isIneVertical
                                       ? pw.Transform.rotate(
                                           angle: pi / 2,
-                                          child: pw.Image(pw.MemoryImage(ineBytes), fit: pw.BoxFit.contain),
+                                          child: pw.Image(
+                                            pw.MemoryImage(ineBytes),
+                                            fit: pw.BoxFit.contain,
+                                          ),
                                         )
-                                      : pw.Image(pw.MemoryImage(ineBytes), fit: pw.BoxFit.contain),
+                                      : pw.Image(
+                                          pw.MemoryImage(ineBytes),
+                                          fit: pw.BoxFit.contain,
+                                        ),
                                 ),
                               ),
                             ],
@@ -310,29 +381,6 @@ class _HistorialMovimientosScreenState
                     ),
                   ],
                 ),
-                if (estado == 'DEVUELTO')
-                  pw.Positioned(
-                    top: 10,
-                    right: 10,
-                    child: pw.Transform.rotate(
-                      angle: -0.15,
-                      child: pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.green800, width: 2),
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                        ),
-                        child: pw.Text(
-                          'DEVUELTO / ENTREGADO',
-                          style: pw.TextStyle(
-                            color: PdfColors.green800,
-                            fontWeight: pw.FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             );
           },
@@ -476,6 +524,37 @@ class _HistorialMovimientosScreenState
                 m['prestamos']['estado'] ?? 'ACTIVO',
               ),
             _buildDetailRow('Fecha / Hora:', fecha),
+
+            if (m['observaciones'] != null &&
+                m['observaciones'].toString().trim().isNotEmpty)
+              _buildDetailRow(
+                tipo == 'SALIDA' && m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR'
+                    ? 'Observaciones Préstamo:'
+                    : 'Observaciones:',
+                m['observaciones'],
+              ),
+
+            if (m['prestamos'] != null &&
+                m['prestamos']['estado'] == 'DEVUELTO') ...[
+              (() {
+                final localReturnMovs = _movimientos.where(
+                  (mov) =>
+                      mov['prestamo_id'] == m['prestamos']['id'] &&
+                      mov['tipo'] == 'ENTRADA',
+                );
+                final returnObs = localReturnMovs
+                    .map((mov) => mov['observaciones'] as String?)
+                    .where((obs) => obs != null && obs.isNotEmpty)
+                    .join(', ');
+                if (returnObs.isNotEmpty) {
+                  return _buildDetailRow(
+                    'Observaciones Devolución:',
+                    returnObs,
+                  );
+                }
+                return const SizedBox.shrink();
+              })(),
+            ],
 
             if (hasBeenEdited) ...[
               const SizedBox(height: 12),
@@ -820,12 +899,13 @@ class _HistorialMovimientosScreenState
                                 return GridView.builder(
                                   padding: const EdgeInsets.all(16),
                                   itemCount: _movimientos.length,
-                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 460,
-                                    mainAxisSpacing: 16,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: 3.0,
-                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 460,
+                                        mainAxisSpacing: 16,
+                                        crossAxisSpacing: 16,
+                                        childAspectRatio: 3.0,
+                                      ),
                                   itemBuilder: (context, index) {
                                     final m = _movimientos[index];
                                     return _buildMovimientoCard(m, colors);
@@ -834,7 +914,9 @@ class _HistorialMovimientosScreenState
                               } else {
                                 return Center(
                                   child: Container(
-                                    constraints: const BoxConstraints(maxWidth: 800),
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 800,
+                                    ),
                                     child: ListView.builder(
                                       padding: const EdgeInsets.all(16),
                                       itemCount: _movimientos.length,
@@ -854,29 +936,27 @@ class _HistorialMovimientosScreenState
       ),
     );
   }
+
   Widget _buildMovimientoCard(Map<String, dynamic> m, ColorScheme colors) {
     final tipo = m['tipo'] as String;
     final folio = m['folio'] ?? 0;
     final folioStr = tipo == 'ENTRADA'
         ? 'E-${folio.toString().padLeft(6, '0')}'
         : 'VALE-${folio.toString().padLeft(6, '0')}';
-    final dateStr = DateTime.parse(m['fecha']).toLocal().toString().split(' ')[0];
+    final dateStr = DateTime.parse(
+      m['fecha'],
+    ).toLocal().toString().split(' ')[0];
     final toolName = m['herramientas']?['nombre'] ?? 'N/A';
     final wasEdited = m['observacion_edicion'] != null;
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _mostrarDetalleMovimiento(m),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               // Icono indicador Entrada/Salida
@@ -884,21 +964,15 @@ class _HistorialMovimientosScreenState
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: tipo == 'ENTRADA'
-                      ? Colors.green.withValues(
-                          alpha: 0.12,
-                        )
-                      : Colors.red.withValues(
-                          alpha: 0.12,
-                        ),
+                      ? Colors.green.withValues(alpha: 0.12)
+                      : Colors.red.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   tipo == 'ENTRADA'
                       ? Icons.login_rounded
                       : Icons.logout_rounded,
-                  color: tipo == 'ENTRADA'
-                      ? Colors.green
-                      : Colors.red,
+                  color: tipo == 'ENTRADA' ? Colors.green : Colors.red,
                   size: 20,
                 ),
               ),
@@ -907,16 +981,14 @@ class _HistorialMovimientosScreenState
               // Información de transacción
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Text(
                           folioStr,
                           style: const TextStyle(
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: Colors.grey,
                           ),
@@ -924,42 +996,52 @@ class _HistorialMovimientosScreenState
                         const SizedBox(width: 8),
                         if (wasEdited)
                           Container(
-                            padding:
-                                const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.amber
-                                  .withValues(
-                                    alpha: 0.15,
-                                  ),
-                              borderRadius:
-                                  BorderRadius.circular(
-                                    4,
-                                  ),
+                              color: Colors.amber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'Corregido',
                               style: TextStyle(
                                 fontSize: 10,
-                                fontWeight:
-                                    FontWeight
-                                        .bold,
-                                color: Colors
-                                    .amber
-                                    .shade900,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
                               ),
                             ),
                           ),
+                        if (m['prestamos'] != null &&
+                            m['prestamos']['estado'] == 'DEVUELTO') ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Devuelto',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       toolName,
                       style: const TextStyle(
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                       maxLines: 1,
@@ -968,10 +1050,7 @@ class _HistorialMovimientosScreenState
                     const SizedBox(height: 4),
                     Text(
                       'Responsable: ${m['responsable_nombre'] ?? 'Sin asignar'}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -981,8 +1060,7 @@ class _HistorialMovimientosScreenState
 
               // Cantidad
               Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     '${tipo == 'ENTRADA' ? '+' : '-'}${m['cantidad']}',
@@ -997,10 +1075,7 @@ class _HistorialMovimientosScreenState
                   const SizedBox(height: 4),
                   Text(
                     dateStr,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),

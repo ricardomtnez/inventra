@@ -7,4 +7,12 @@ class PdfDownloadHelper {
   }) async {
     throw UnsupportedError('Plataforma no soportada para descarga directa.');
   }
+
+  static Future<void> downloadBytes({
+    required Uint8List bytes,
+    required String filename,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    throw UnsupportedError('Plataforma no soportada para descarga directa.');
+  }
 }

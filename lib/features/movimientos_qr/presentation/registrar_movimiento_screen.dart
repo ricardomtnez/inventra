@@ -812,7 +812,12 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                   pw.Bullet(text: 'Matrícula/ID: $matricula', style: const pw.TextStyle(fontSize: 8)),
                   pw.Bullet(text: 'Entregado por: $entregadoPorNombre', style: const pw.TextStyle(fontSize: 8)),
                   if (observaciones.isNotEmpty)
-                    pw.Bullet(text: 'Observaciones: $observaciones', style: const pw.TextStyle(fontSize: 8)),
+                    pw.Bullet(
+                      text: _motivo == 'PRESTAMO_ALUMNO_PROFESOR'
+                          ? 'Observaciones de Préstamo: $observaciones'
+                          : 'Observaciones: $observaciones',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
                   if (prestamoId != null) ...[
                     pw.SizedBox(height: 10),
                     pw.Center(
