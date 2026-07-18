@@ -38,12 +38,13 @@ lib/
 3. **Escáner e Impresión de Códigos QR:**
    * Diseñador visual de planilla de impresión para exportar los códigos QR de herramientas seleccionadas en una cuadrícula ajustable (tamaño y columnas) directamente a PDF.
    * Escáner QR optimizado integrado con linterna y cambio de cámara para capturar rápidamente códigos QR de equipos y abrir transacciones.
-4. **Registro de Movimientos con Firma y Captura de INE Local:**
-   * Soporta préstamos a alumnos/docentes, devoluciones, compras y bajas por pérdida o descompostura.
-   * **Firma Digitalizada:** Lienzo táctil para capturar la firma manuscrita del responsable y subirla a Supabase Storage (archivo `.png` optimizado de ~8 KB).
-   * **Identificación (INE/Credencial):** Permite tomar foto de la identificación. La imagen se almacena en memoria local y se incrusta de forma profesional en el vale. **Nunca se sube a Supabase**, ahorrando almacenamiento.
-   * **Foliación Secuencial:** El motor PostgreSQL genera automáticamente folios consecutivos únicos (ej. `VALE-000042`) al registrar la transacción.
-   * **Impresión/Envío Nativos:** Genera el PDF del vale en el dispositivo del cliente. Permite imprimirlo a través de las impresoras del sistema o compartir el archivo `.pdf` real mediante WhatsApp, Correo, etc., sin alojar PDFs en la nube.
+4. **Registro de Movimientos Multi-Herramienta y Generación de Vales Agrupados:**
+   * **Carrito de Préstamos:** Permite escanear o seleccionar manualmente múltiples equipos en una sola sesión de escaneo, agregándolos a un carrito.
+   * **Firma Única y Vale Unificado:** El responsable firma una sola vez y se genera un único vale digital PDF profesional que detalla en una tabla todos los equipos solicitados.
+   * **Agrupación por `grupo_id`:** En la base de datos se almacena una fila individual para cada herramienta (tanto en `prestamos` como en `movimientos`) que comparte el mismo identificador de grupo (`grupo_id` de tipo UUID).
+   * **Regla de Devolución Parcial y Retención de INE:** Las herramientas se pueden devolver de forma individual o total escaneando directamente el QR del equipo o el código del Vale (`INVENTRA_VALE:grupo_id`). Si se realiza una devolución parcial, se actualiza el stock correspondiente, pero el vale y la identificación (INE) subida al storage (`identificaciones/ine_$prestamoId.jpg`) se retienen de forma segura en la base de datos y en Supabase Storage hasta que se devuelva el **último** equipo del grupo.
+   * **Resolución Dinámica de Deudores:** Al escanear el código QR de un equipo para registrar una entrada (`ENTRADA`), el sistema busca los préstamos activos para ese equipo. Si hay uno solo, carga los datos del deudor automáticamente; si hay múltiples préstamos activos para esa misma herramienta, despliega una hoja inferior de selección con los nombres y matrículas de los deudores activos para que el operador elija el correcto.
+   * **Motivo Simplificado de Movimiento:** Se ha migrado y simplificado el motivo del movimiento de `"PRESTAMO_ALUMNO_PROFESOR"` a `"PRESTAMO"` tanto en la interfaz como en el esquema de restricciones de base de datos de Supabase, convirtiendo todos los registros históricos.
 5. **Ficha Técnica Pública Web:**
    * Cuando se escanea un código QR, el sistema redirige al usuario a la URL de Vercel con el parámetro `?id=UUID`.
    * El sistema detecta que es una petición web pública y muestra una **Ficha Técnica responsiva y profesional** de solo lectura de la herramienta (detalles, stock, ubicación física) con un botón para descargar la ficha en formato PDF.

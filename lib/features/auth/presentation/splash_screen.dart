@@ -158,26 +158,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      backgroundColor: const Color(0xFF0A0D14),
+      body: SizedBox(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF070B19), // Azul-negro ultra profundo
-              Color(0xFF0F172A), // Slate 900
-              Color(0xFF1E293B), // Slate 800
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
         child: SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              // Bloque Central: Logo y Título animado
+              // Central Block: Animated Logo and Title
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -188,22 +179,26 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                         scale: _scaleAnimation.value,
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(36),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: const Color(0xFF5E60E6).withValues(alpha: 0.2),
+                              width: 1,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.6),
-                                blurRadius: _glowAnimation.value,
-                                spreadRadius: 3,
-                                offset: const Offset(0, 4),
+                                color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
+                                blurRadius: _glowAnimation.value / 2,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(36),
+                            borderRadius: BorderRadius.circular(28),
                             child: Image.asset(
                               'assets/images/inventra_logo.png',
-                              width: 170,
-                              height: 170,
+                              width: 140,
+                              height: 140,
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -216,29 +211,30 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
-                        Text(
-                          'INVENTRA',
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 8,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.blue.shade600.withValues(alpha: 0.8),
-                                blurRadius: 15,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Text(
+                            'INVENTRA',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 10,
+                              color: Colors.white,
+                              fontFamily: Theme.of(context).textTheme.headlineLarge?.fontFamily,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Control Inteligente de Herramientas',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                            letterSpacing: 1.5,
+                        const Padding(
+                          padding: EdgeInsets.only(left: 2.0),
+                          child: Text(
+                            'CONTROL INTELIGENTE DE STOCK',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2.0,
+                            ),
                           ),
                         ),
                       ],
@@ -246,82 +242,69 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   ),
                 ],
               ),
-              // Bloque Inferior: Indicador de Carga y Texto de Estado
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 48.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Texto dinámico con animación de cambio de texto
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      switchInCurve: const Interval(0.5, 1.0, curve: Curves.easeIn),
-                      switchOutCurve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-                      transitionBuilder: (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.15),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        _currentText,
-                        key: ValueKey<String>(_currentText),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+            // Bottom Block: Loading indicator & Status text
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 48.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    switchInCurve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+                    switchOutCurve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.15),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
                         ),
-                        textAlign: TextAlign.center,
+                      );
+                    },
+                    child: Text(
+                      _currentText,
+                      key: ValueKey<String>(_currentText),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 18),
-                    // Barra de progreso lineal elegante
-                    Container(
-                      width: 240,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white10,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Stack(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 50),
-                            width: 240 * _progressValue,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF2563EB), // Azul 600
-                                  Color(0xFF60A5FA), // Azul 400
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blue.shade400.withValues(alpha: 0.5),
-                                  blurRadius: 4,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 200,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Stack(
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 50),
+                          width: 200 * _progressValue,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5E60E6),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

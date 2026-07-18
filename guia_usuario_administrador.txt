@@ -1,0 +1,178 @@
+================================================================================
+                        INVENTRA - MANUAL DE USUARIO
+                  GUÍA DE CAPACITACIÓN PARA EL ADMINISTRADOR
+================================================================================
+
+Este manual ha sido elaborado para guiar a los administradores y operadores en el
+uso, gestión, mantenimiento y administración general del sistema INVENTRA.
+
+--------------------------------------------------------------------------------
+1. OBJETIVO DEL SISTEMA
+--------------------------------------------------------------------------------
+INVENTRA es una solución premium multiplataforma (Web y Móvil) diseñada para el
+control riguroso, trazabilidad en tiempo real y administración del catálogo e 
+historial de préstamos de herramientas en talleres, almacenes o laboratorios. 
+
+El sistema permite:
+- Registrar y editar herramientas con especificaciones técnicas detalladas y fotos.
+- Generar y exportar planillas personalizables de códigos QR para el etiquetado.
+- Gestionar préstamos (Salidas) con captura de firma digitalizada y credenciales
+  del solicitante.
+- Registrar devoluciones (Entradas) con liberación automática de existencias.
+- Auditar transacciones, generar reportes digitales en PDF y optimizar el 
+  almacenamiento en la nube purgando automáticamente datos de seguridad.
+
+--------------------------------------------------------------------------------
+2. TECNOLOGÍAS UTILIZADAS
+--------------------------------------------------------------------------------
+El sistema utiliza una arquitectura feature-first ("orientada a características")
+que garantiza estabilidad, rendimiento y alta escalabilidad:
+
+- Frontend / Aplicación: Flutter (Dart) - Material 3
+- Backend / Base de datos: Supabase (PostgreSQL relacional)
+- Servidor Web (Public View): Vercel (Redireccionamiento dinámico de QRs)
+- Generación de Reportes: PDF Library (Dart)
+- Dispositivos Soportados: Android, iOS, Web (Navegadores Chrome, Safari, Edge)
+
+--------------------------------------------------------------------------------
+3. APARTADO DE CREDENCIALES Y ACCESOS (CONFIGURACIÓN)
+--------------------------------------------------------------------------------
+Utilice este apartado para registrar y resguardar las llaves de acceso a las 
+plataformas de soporte del sistema.
+
+A) ACCESO A SUPABASE (Backend y Base de datos):
+- URL del Proyecto: https://nnwtkhncjlalwzywgida.supabase.co
+- Clave Anon (Pública): sb_publishable_Zv4F39afAj0P7YDp_0L9EA_ltvvX5NI
+- Enlace al Panel de Administración: https://supabase.com/dashboard
+- Correo de Administrador Supabase: utoriental.mantenimiento@outlook.com
+- Contraseña de Supabase: utoriental2026 / mantenimiento2026
+
+B) ACCESO A VERCEL (Hosting de Vista Pública Web):
+- Enlace al Panel de Vercel: https://vercel.com/dashboard
+- URL de la Vista Pública de la App: https://inventra-wine.vercel.app/herramienta
+- Proveedor de Acceso Vercel: [GitHub / Correo electrónico]
+- Correo de Acceso Vercel: utoriental.mantenimiento@outlook.com
+- Contraseña de Vercel: utoriental2026 / mantenimiento2026
+
+C) ACCESO DE PRUEBA / INICIAL DE LA APP (Usuario Administrador):
+Para ingresar a la aplicación, se requiere una cuenta autorizada. 
+- Correo Completo: utoriental.mantenimiento@outlook.com
+- Contraseña de Acceso: mantenimiento2026
+- Rol Asignado: ADMIN
+
+--------------------------------------------------------------------------------
+4. CAPACITACIÓN DE OPERACIÓN DIARIA PARA EL ADMINISTRADOR
+--------------------------------------------------------------------------------
+
+MÓDULO I: LOGIN Y PANEL DE CONTROL (DASHBOARD)
+1. Abra la aplicación en su dispositivo móvil o computadora.
+2. Ingrese su correo (o apodo asignado institucional) y contraseña. 
+3. Marque la casilla "Recordarme" si desea omitir este paso en el futuro.
+4. En el Dashboard principal, visualizará dos métricas clave actualizadas:
+   - "Piezas en Inventario": Suma total de unidades físicas disponibles en stock.
+   - "Préstamos Activos": Cantidad de herramientas que se encuentran actualmente prestadas.
+
+MÓDULO II: CATÁLOGO DE HERRAMIENTAS
+1. **Creación de una Herramienta**:
+   - Vaya a la pestaña "Catálogo" y presione el botón "+" (esquina inferior).
+   - Capture o seleccione una foto de la herramienta (el sistema la comprimirá 
+     automáticamente para no consumir datos innecesarios).
+   - Ingrese el Nombre, Descripción, Marca, Modelo y Número de Serie.
+   - Seleccione la "Ubicación Física" (ej. Laboratorio A, Almacén Central) y la 
+     "Unidad de Medida" (Piezas, Metros, etc.).
+   - Defina el Stock Inicial y el Costo Unitario en dólares (solo para nuevos registros).
+   - Presione "Registrar en Sistema". El stock se calculará por servidor de forma segura.
+2. **Edición**:
+   - En computadoras/Web, seleccione una herramienta y haga clic en el botón de Editar.
+   - En dispositivos móviles, deslice la tarjeta hacia la derecha para revelar el 
+     botón de edición rápida.
+   - Modifique los parámetros deseados y guarde los cambios.
+3. **Eliminación**:
+   - Para dar de baja definitiva del catálogo, deslice a la izquierda (móvil) o use 
+     el botón del bote de basura (Web) para aplicar una eliminación lógica (desactivar)
+     o permanente.
+
+MÓDULO III: DISEÑO Y EXPORTACIÓN DE ETIQUETAS QR
+1. En la pestaña del Catálogo, seleccione una o varias herramientas marcando sus 
+   casillas correspondientes.
+2. Haga clic en el botón "Generar Planilla QR".
+3. En la pantalla de configuración podrá ajustar:
+   - **Escala del QR**: Ajuste rápido entre Pequeño (55px), Mediano (90px) o Grande (135px).
+   - **Columnas**: Defina cuántas etiquetas caben por fila en la hoja de impresión.
+   - **Cantidad por herramienta**: Incremente o disminuya el número de etiquetas
+     individuales para cada pieza si cuenta con unidades idénticas en stock.
+4. Presione **"Generar Planilla de Estampas"**. Se abrirá una previsualización de la
+   hoja PDF lista para mandar a imprimir a su impresora local o inalámbrica.
+5. **Compartir/Descargar QR Individual**:
+   - Si requiere solo la etiqueta de una herramienta, use el botón de compartir.
+   - En versión Web, descargará la tarjeta como una imagen PNG optimizada de alta calidad.
+   - En móvil, abrirá el menú nativo de compartición (WhatsApp, Correo, etc.).
+
+MÓDULO IV: REGISTRO DE PRÉSTAMOS (SALIDA DE HERRAMIENTAS)
+Este es el flujo crítico para asegurar la trazabilidad:
+1. Abra el escáner QR de la aplicación y apunte al código QR de la herramienta. 
+2. Al ser detectada, el sistema abrirá la pantalla de Registro de Movimiento.
+3. Seleccione el Tipo: **"SALIDA"** y Motivo: **"Préstamo a Alumno o Profesor"**.
+4. Capture los datos correspondientes:
+   - Cantidad a prestar.
+   - Nombre completo del Responsable del préstamo.
+   - Matrícula o Identificación institucional.
+   - Observaciones (especificando detalles como "Falta cargador", "Se entrega con estuche").
+5. **Firma Digital**: Solicite al receptor que plasme su firma digital directamente
+   sobre el lienzo táctil del dispositivo.
+6. **Captura de Identificación (INE/Credencial)**: Tome una fotografía de la credencial
+   del alumno/docente. Esta imagen se almacena en memoria local del dispositivo
+   para incorporarse directamente al PDF final del vale. **Por privacidad y ahorro de 
+   espacio en Supabase Storage, esta fotografía no se sube a internet**.
+7. Guarde el préstamo. Automáticamente:
+   - Se reduce el stock disponible en la base de datos.
+   - Se crea un folio único incremental (ej. `VALE-000214`).
+   - Se genera el **Vale Digital en PDF** que incluye la firma y la identificación incrustada.
+   - Podrá imprimir este vale o enviarlo directamente al alumno/docente por WhatsApp o correo.
+
+MÓDULO V: DEVOLUCIONES (ENTRADA DE HERRAMIENTAS)
+1. Al momento de retornar una herramienta, use el escáner QR de la aplicación para
+   escanear el código QR del equipo o el código de barras/QR impreso en el **Vale Digital** 
+   del préstamo.
+2. El sistema localizará automáticamente el préstamo activo relacionado.
+3. Seleccione el Tipo: **"ENTRADA"** y Motivo: **"Devolución de Préstamo"**.
+4. Ingrese la cantidad devuelta (soporta devoluciones parciales) y añada comentarios en
+   el campo de Observaciones de Devolución (ej. "Entregado limpio y completo").
+5. Al guardar la devolución:
+   - El stock disponible se incrementa automáticamente en el catálogo.
+   - El préstamo se marca como "PARCIAL" o "DEVUELTO" (según corresponda).
+   - **Políticas de Privacidad y Almacenamiento**: Una vez que el préstamo pasa a 
+     estado **DEVUELTO**, el sistema purga de forma inmediata y automática la imagen de 
+     la credencial/INE de los servidores para proteger la identidad del usuario y 
+     liberar espacio de almacenamiento.
+
+MÓDULO VI: HISTORIAL DE TRANSACCIONES Y AUDITORÍA
+1. Vaya a la pestaña "Historial". Verá el flujo cronológico completo de entradas y salidas.
+2. Cada tarjeta muestra el folio, el nombre de la herramienta, el responsable, la fecha, 
+   el incremento/decremento de unidades, y un badge de estado:
+   - El badge verde **"Devuelto"** le indica que esa salida ya fue reingresada en su totalidad.
+3. Presione sobre cualquier tarjeta para ver el detalle de auditoría:
+   - Podrá consultar las observaciones de préstamo iniciales y las observaciones de devolución 
+     de forma organizada.
+4. **Reconstrucción de Vales**:
+   - En cualquier momento de la auditoría, si el préstamo requiere validación física, presione 
+     **"Ver Vale Digital (PDF)"**.
+   - El sistema reconstruirá en el acto el vale digital exacto con la firma original del solicitante.
+5. **Corrección de Errores (Solo Admins)**:
+   - Si detecta un error de captura de cantidad o motivo, use la opción **"Corregir / Editar Registro"**.
+   - Ingrese la justificación de auditoría y guarde. El sistema recalculará los inventarios
+     de forma retrospectiva. (El sistema bloquea la edición si el cambio reduce el stock global
+     a números negativos).
+
+--------------------------------------------------------------------------------
+5. ACCIONES Y RECOMENDACIONES DE SEGURIDAD
+--------------------------------------------------------------------------------
+- **Gestión de la Privacidad (INEs)**: No intente almacenar de forma manual las imágenes
+  de identificaciones de alumnos en los servidores públicos. El sistema está configurado
+  para mantenerlas en el Vale Digital impreso/enviado y destruirlas del Storage temporal
+  inmediatamente al completarse la devolución.
+- **Sincronización Offline**: La aplicación móvil está equipada con almacenamiento local
+  seguro. Si pierde la conexión a internet en el taller, puede seguir registrando
+  préstamos y devoluciones. El sistema sincronizará los movimientos automáticamente al 
+  restablecerse la red.
+================================================================================

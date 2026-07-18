@@ -418,7 +418,6 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   }
 
   void _mostrarDetalleHerramienta(Map<String, dynamic> h) {
-    final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final especificaciones =
         h['especificaciones'] as Map<String, dynamic>? ?? {};
@@ -430,15 +429,12 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
       constraints: const BoxConstraints(maxWidth: 600),
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          color: isDark ? const Color(0xFF0A0D14) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 15,
-              spreadRadius: 2,
-            ),
-          ],
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
         ),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         child: Column(
@@ -654,12 +650,12 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     ),
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: colors.primary.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFF5E60E6).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: colors.primary.withValues(alpha: 0.15),
+                          color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
                         ),
                       ),
                       child: Row(
@@ -673,15 +669,16 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 4),
                               Text(
                                 '\$${valorTotal.toStringAsFixed(2)}',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: colors.primary,
+                                  color: Color(0xFF5E60E6),
                                 ),
                               ),
                             ],
@@ -696,7 +693,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                                   color: Colors.grey,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 4),
                               Text(
                                 '\$${costoPromedio.toStringAsFixed(2)} c/u',
                                 style: const TextStyle(
@@ -972,13 +969,19 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   }
 
   Widget _buildToolCard(Map<String, dynamic> h, String id, int stock, bool isSelected, ColorScheme colors) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: EdgeInsets.zero,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1.0,
+        ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: () {
           if (_isSelectionMode) {
             setState(() {
@@ -1012,18 +1015,16 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                       if (val == true) {
                         _selectedToolIds.add(id);
                       } else {
-                        _selectedToolIds.remove(
-                          id,
-                        );
+                        _selectedToolIds.remove(id);
                       }
                     });
                   },
-                  activeColor: colors.primary,
+                  activeColor: const Color(0xFF5E60E6),
                 ),
                 const SizedBox(width: 8),
               ],
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 child: h['foto_url'] != null
                     ? (kIsWeb
                         ? Image.network(
@@ -1034,7 +1035,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                             errorBuilder: (_, __, ___) => Container(
                               width: 64,
                               height: 64,
-                              color: Colors.grey.shade200,
+                              color: isDark ? const Color(0xFF121624) : Colors.grey.shade100,
                               child: const Icon(
                                 Icons.broken_image_outlined,
                                 color: Colors.grey,
@@ -1049,15 +1050,15 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                             placeholder: (_, __) => Container(
                               width: 64,
                               height: 64,
-                              color: Colors.grey.shade200,
+                              color: isDark ? const Color(0xFF121624) : Colors.grey.shade100,
                               child: const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF5E60E6)),
                               ),
                             ),
                             errorWidget: (_, __, ___) => Container(
                               width: 64,
                               height: 64,
-                              color: Colors.grey.shade200,
+                              color: isDark ? const Color(0xFF121624) : Colors.grey.shade100,
                               child: const Icon(
                                 Icons.broken_image_outlined,
                                 color: Colors.grey,
@@ -1067,7 +1068,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                     : Container(
                         width: 64,
                         height: 64,
-                        color: Colors.grey.shade200,
+                        color: isDark ? const Color(0xFF121624) : Colors.grey.shade100,
                         child: const Icon(
                           Icons.handyman_rounded,
                           color: Colors.grey,
@@ -1078,68 +1079,67 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
               // Detalles
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       h['nombre'] ?? 'Sin nombre',
                       style: const TextStyle(
-                        fontWeight:
-                            FontWeight.bold,
-                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        letterSpacing: -0.3,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
-                      h['ubicaciones']?['nombre'] ??
-                          'Sin ubicación',
-                      style: const TextStyle(
-                        color: Colors.grey,
+                      h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                         fontSize: 12,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration:
-                              BoxDecoration(
-                                color: stock > 0
-                                    ? Colors.green
-                                    : Colors.red,
-                                shape: BoxShape
-                                    .circle,
-                              ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: stock > 0
+                            ? const Color(0xFF059669).withValues(alpha: 0.1)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: stock > 0
+                              ? const Color(0xFF059669).withValues(alpha: 0.25)
+                              : const Color(0xFFEF4444).withValues(alpha: 0.25),
+                          width: 1.0,
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: stock > 0 ? const Color(0xFF059669) : const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
                             stock > 0
                                 ? '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'} disp.'
                                 : 'Sin stock',
                             style: TextStyle(
-                              color: stock > 0
-                                  ? Colors
-                                        .green
-                                        .shade700
-                                  : Colors
-                                        .red
-                                        .shade700,
-                              fontWeight:
-                                  FontWeight.bold,
-                              fontSize: 12,
+                              color: stock > 0 ? const Color(0xFF059669) : const Color(0xFFEF4444),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1150,7 +1150,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                   icon: const Icon(
                     Icons.swap_horiz_rounded,
                   ),
-                  color: colors.primary,
+                  color: isDark ? Colors.white : colors.primary,
                   tooltip: 'Nueva Transacción',
                   onPressed: () =>
                       _mostrarOpcionesMovimiento(
@@ -1162,7 +1162,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                 if (kIsWeb) ...[
                   IconButton(
                     icon: const Icon(Icons.edit_rounded),
-                    color: Colors.blue.shade600,
+                    color: const Color(0xFF5E60E6),
                     tooltip: 'Editar Herramienta',
                     onPressed: () async {
                       final res = await Navigator.push(
@@ -1227,7 +1227,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                         _cargarHerramientas();
                       }
                     },
-                    backgroundColor: Colors.blue.shade600,
+                    backgroundColor: const Color(0xFF5E60E6),
                     foregroundColor: Colors.white,
                     icon: Icons.edit_rounded,
                     label: 'Editar',

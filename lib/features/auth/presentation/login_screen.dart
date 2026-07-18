@@ -139,6 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
       body: LayoutBuilder(
         builder: (context, constraints) {
           // Si la pantalla es ancha (Web / Tablet), usamos pantalla dividida
@@ -150,17 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   flex: 5,
                   child: Container(
                     height: double.infinity,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF070B19), // Azul-negro profundo
-                          Color(0xFF0F172A), // Slate 900
-                          Color(0xFF1E293B), // Slate 800
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
+                    color: const Color(0xFF0A0D14),
                     child: SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.all(48.0),
@@ -171,21 +162,25 @@ class _LoginScreenState extends State<LoginScreen> {
                             // Logo de la Aplicación con resplandor suave
                             Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(24),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
+                                  width: 1,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF2563EB).withValues(alpha: 0.4),
-                                    blurRadius: 30,
-                                    spreadRadius: 2,
+                                    color: const Color(0xFF5E60E6).withValues(alpha: 0.12),
+                                    blurRadius: 24,
+                                    spreadRadius: 1,
                                   ),
                                 ],
                               ),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(24),
+                                borderRadius: BorderRadius.circular(20),
                                 child: Image.asset(
                                   'assets/images/inventra_logo.png',
-                                  width: 100,
-                                  height: 100,
+                                  width: 90,
+                                  height: 90,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -194,19 +189,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             const Text(
                               'INVENTRA',
                               style: TextStyle(
-                                fontSize: 44,
-                                fontWeight: FontWeight.w900,
+                                fontSize: 38,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                                letterSpacing: 4,
+                                letterSpacing: 8,
                               ),
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              'Control de Inventario de Herramientas y Equipos en tiempo real.',
+                              'Control de inventario y trazabilidad de herramientas en tiempo real para tu taller o almacén.',
                               style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                                height: 1.4,
+                                fontSize: 16,
+                                color: Color(0xFF94A3B8),
+                                height: 1.5,
                               ),
                             ),
                             const SizedBox(height: 48),
@@ -225,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Expanded(
                   flex: 5,
                   child: Container(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    color: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
                     child: Center(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 48.0, vertical: 24.0),
@@ -244,15 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
             return Container(
               height: double.infinity,
               width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: isDark 
-                    ? const LinearGradient(
-                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      )
-                    : null,
-              ),
+              color: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
               child: SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
@@ -266,22 +253,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Logo
                           Container(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
+                                width: 1,
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-                                  blurRadius: 30,
+                                  color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
+                                  blurRadius: 20,
                                   spreadRadius: 1,
-                                  offset: const Offset(0, 8),
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(24),
                               child: Image.asset(
                                 'assets/images/inventra_logo.png',
-                                width: 140,
-                                height: 140,
+                                width: 120,
+                                height: 120,
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -290,15 +281,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Text(
                             'INVENTRA',
                             style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 4,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
                             ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Control de Inventario de Herramientas',
-                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                            'Control Inteligente de Herramientas',
+                            style: TextStyle(color: Color(0xFF64748B), fontSize: 13, letterSpacing: 0.5),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 36),
@@ -320,17 +311,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
-      elevation: isDark ? 0 : 3,
-      shadowColor: const Color(0x1F000000),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      borderOnForeground: false,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1.0,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(28.0),
         child: _isLoading && _emailController.text.isEmpty
             ? const Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
+                  CircularProgressIndicator(color: Color(0xFF5E60E6)),
                   SizedBox(height: 20),
                   Text(
                     'Restaurando sesión...',
@@ -346,13 +341,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Text(
                       'Iniciar Sesión',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Ingresa tus credenciales',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      'Ingresa tus credenciales para continuar',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 28),
@@ -399,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 24,
                           child: Checkbox(
                             value: _rememberMe,
-                            activeColor: const Color(0xFF2563EB),
+                            activeColor: const Color(0xFF5E60E6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
@@ -430,10 +425,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
                       child: _isLoading
                           ? const SizedBox(
                               height: 20,
@@ -458,10 +449,10 @@ class _LoginScreenState extends State<LoginScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+              color: const Color(0xFF5E60E6).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.blue.shade400, size: 24),
+            child: Icon(icon, color: const Color(0xFF818CF8), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -481,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   description,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Colors.grey,
+                    color: Color(0xFF94A3B8),
                   ),
                 ),
               ],

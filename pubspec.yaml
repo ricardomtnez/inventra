@@ -65,8 +65,8 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: "assets/images/inventra_logo.png"
-    background_color: "#0F172A"
-    theme_color: "#2563EB"
+    background_color: "#0A0D14"
+    theme_color: "#5E60E6"
   macos:
     generate: true
     image_path: "assets/images/inventra_logo.png"

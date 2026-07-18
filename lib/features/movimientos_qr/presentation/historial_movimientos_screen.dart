@@ -240,7 +240,7 @@ class _HistorialMovimientosScreenState
                       style: const pw.TextStyle(fontSize: 8),
                     ),
                     pw.Bullet(
-                      text: 'Motivo: PRESTAMO_ALUMNO_PROFESOR',
+                      text: 'Motivo: ${m['motivo'].toString().replaceAll('_', ' ')}',
                       style: const pw.TextStyle(fontSize: 8),
                     ),
                     pw.Bullet(
@@ -528,7 +528,7 @@ class _HistorialMovimientosScreenState
             if (m['observaciones'] != null &&
                 m['observaciones'].toString().trim().isNotEmpty)
               _buildDetailRow(
-                tipo == 'SALIDA' && m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR'
+                tipo == 'SALIDA' && (m['motivo'] == 'PRESTAMO_ALUMNO_PROFESOR' || m['motivo'] == 'PRESTAMO')
                     ? 'Observaciones Préstamo:'
                     : 'Observaciones:',
                 m['observaciones'],
@@ -682,6 +682,9 @@ class _HistorialMovimientosScreenState
     final qtyController = TextEditingController(text: m['cantidad'].toString());
     final obsController = TextEditingController();
     String motivo = m['motivo'] as String;
+    if (motivo == 'PRESTAMO_ALUMNO_PROFESOR') {
+      motivo = 'PRESTAMO';
+    }
     final tipo = m['tipo'] as String;
 
     showDialog(
@@ -747,8 +750,8 @@ class _HistorialMovimientosScreenState
                               ]
                             : const [
                                 DropdownMenuItem(
-                                  value: 'PRESTAMO_ALUMNO_PROFESOR',
-                                  child: Text('PRÉSTAMO A ALUMNO/PROFESOR'),
+                                  value: 'PRESTAMO',
+                                  child: Text('PRÉSTAMO'),
                                 ),
                                 DropdownMenuItem(
                                   value: 'BAJA_DESCOMPOSTURA',

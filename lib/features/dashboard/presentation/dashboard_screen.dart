@@ -23,12 +23,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _prestamosActivos = 0;
   bool _isLoading = true;
   StreamSubscription<AuthState>? _authSubscription;
+  Map<String, dynamic>? _currentProfile;
 
   @override
   void initState() {
     super.initState();
     _cargarMetricas();
     _escucharAuthState();
+    _obtenerPerfilUsuario();
+  }
+
+  Future<void> _obtenerPerfilUsuario() async {
+    try {
+      final user = SupabaseClientHelper.client.auth.currentUser;
+      if (user != null) {
+        final profile = await SupabaseClientHelper.client
+            .from('perfiles')
+            .select('nombre_completo, correo, matricula')
+            .eq('id', user.id)
+            .single();
+        if (mounted) {
+          setState(() {
+            _currentProfile = profile;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error obtaining dashboard profile: $e');
+    }
   }
 
   void _escucharAuthState() {
@@ -121,7 +143,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const OfflineBanner(),
           Expanded(
             child: _isLoading && _totalHerramientas == 0
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF5E60E6)))
                 : RefreshIndicator(
                     onRefresh: _cargarMetricas,
                     child: Center(
@@ -133,7 +155,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Tarjetas KPI
+                              const SizedBox(height: 8),
+                              // Welcome Header Banner
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: colors.primary.withValues(alpha: 0.1),
+                                    child: Text(
+                                      (_currentProfile != null && _currentProfile!['nombre_completo'] != null)
+                                          ? _currentProfile!['nombre_completo'].toString().substring(0, 1).toUpperCase()
+                                          : 'A',
+                                      style: TextStyle(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Hola, ${_currentProfile?['nombre_completo'] ?? 'Administrador'} 👋',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text(
+                                          'Gestión de stock y préstamos en tiempo real',
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 28),
+                              
+                              // KPI Cards
                               Row(
                                 children: [
                                   Expanded(
@@ -170,6 +238,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -393,33 +462,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Color color,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      elevation: 2,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1.0,
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    value,
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 22),
                   ),
                   if (onTap != null)
-                    Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade400, size: 20),
+                    Icon(Icons.arrow_forward_rounded, color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8), size: 18),
                 ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, letterSpacing: -0.5),
               ),
               const SizedBox(height: 4),
               Text(
                 title,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -435,6 +523,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -442,7 +531,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
         ),
         child: Row(
           children: [
@@ -450,9 +542,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -469,12 +561,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+            Icon(Icons.chevron_right_rounded, color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8)),
           ],
         ),
       ),

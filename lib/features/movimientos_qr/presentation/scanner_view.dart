@@ -18,6 +18,294 @@ class _ScannerViewState extends State<ScannerView> {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _isProcessing = false;
 
+  final List<Map<String, dynamic>> _carritoHerramientas = [];
+
+  void _mostrarListaCarrito() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.assignment_rounded, color: Color(0xFF5E60E6)),
+                  SizedBox(width: 8),
+                  Text('Equipos en el Vale', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: _carritoHerramientas.isEmpty
+                    ? const Center(child: Text('No hay herramientas en el vale.'))
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _carritoHerramientas.length,
+                        itemBuilder: (context, index) {
+                          final tool = _carritoHerramientas[index];
+                          return ListTile(
+                            leading: const Icon(Icons.handyman_rounded, color: Colors.grey),
+                            title: Text(tool['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text(tool['ubicaciones']?['nombre'] ?? 'Sin ubicación', style: const TextStyle(fontSize: 11)),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                              onPressed: () {
+                                setStateDialog(() {
+                                  _carritoHerramientas.removeAt(index);
+                                });
+                                setState(() {}); // Sync main screen state
+                                if (_carritoHerramientas.isEmpty) {
+                                  Navigator.pop(context);
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleToolSelected(Map<String, dynamic> tool) async {
+    final client = SupabaseClientHelper.client;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    if (widget.defaultTipo == 'SALIDA') {
+      final exists = _carritoHerramientas.any((t) => t['id'] == tool['id']);
+      if (exists) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('${tool['nombre']} ya está en el vale.'),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      } else {
+        setState(() {
+          _carritoHerramientas.add(tool);
+        });
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Añadido: ${tool['nombre']}'),
+            backgroundColor: Colors.green.shade800,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+      _reactivarEscaner();
+    } else {
+      // ENTRADA (Devolución) - Dynamic Borrower Resolver
+      final activeLoans = await client
+          .from('prestamos')
+          .select('*, herramientas(*, ubicaciones(nombre), unidades_medida(abreviatura, nombre))')
+          .eq('herramienta_id', tool['id'])
+          .neq('estado', 'DEVUELTO')
+          .order('fecha_prestamo', ascending: true);
+
+      if (activeLoans.isEmpty) {
+        final localCtx = context;
+        if (!localCtx.mounted) return;
+        await showDialog(
+          context: localCtx,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 26),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Sin Préstamos Activos',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'No hay ningún registro de préstamo activo para "${tool['nombre']}".\n\n¿Desea registrar una entrada de compra de herramienta nueva de forma manual?',
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogCtx);
+                  _reactivarEscaner();
+                },
+                child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(dialogCtx);
+                  
+                  final res = await navigator.push(
+                    MaterialPageRoute(
+                      builder: (context) => RegistrarMovimientoScreen(
+                        herramienta: tool,
+                        tipoInicial: 'ENTRADA',
+                        motivoInicial: 'COMPRA_NUEVA',
+                      ),
+                    ),
+                  );
+                  if (res == true) {
+                    if (mounted) navigator.pop(true);
+                  } else {
+                    _reactivarEscaner();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5E60E6),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Registrar Entrada'),
+              ),
+            ],
+          ),
+        );
+      } else if (activeLoans.length == 1) {
+        final res = await navigator.push(
+          MaterialPageRoute(
+            builder: (context) => RegistrarMovimientoScreen(
+              herramienta: tool,
+              tipoInicial: 'ENTRADA',
+              prestamoInicial: activeLoans.first,
+            ),
+          ),
+        );
+        if (res == true) {
+          if (mounted) navigator.pop(true);
+        } else {
+          _reactivarEscaner();
+        }
+      } else {
+        // Multiple borrowers, show selection sheet
+        final localCtx = context;
+        if (!localCtx.mounted) return;
+        final selectedLoan = await showModalBottomSheet<Map<String, dynamic>>(
+          context: localCtx,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          constraints: const BoxConstraints(maxWidth: 600),
+          builder: (dialogCtx) {
+            final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
+            return Container(
+              height: MediaQuery.of(dialogCtx).size.height * 0.7,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0A0D14) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Seleccionar Responsable de Devolución',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Varios usuarios tienen asignada la herramienta "${tool['nombre']}". Selecciona quién la entrega:',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: activeLoans.length,
+                      itemBuilder: (context, idx) {
+                        final loan = activeLoans[idx];
+                        final pending = (loan['cantidad'] as int) - (loan['cantidad_devuelta'] as int);
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            title: Text(
+                              loan['responsable_nombre'] ?? 'Sin nombre',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              'Matrícula: ${loan['matricula'] ?? 'N/A'}\nFecha: ${_formatFechaDev(loan['fecha_prestamo'])}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '$pending pza(s) pendiente(s)',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded, size: 18),
+                              ],
+                            ),
+                            onTap: () => Navigator.pop(context, loan),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+
+        if (selectedLoan != null) {
+          final res = await navigator.push(
+            MaterialPageRoute(
+              builder: (context) => RegistrarMovimientoScreen(
+                herramienta: tool,
+                tipoInicial: 'ENTRADA',
+                prestamoInicial: selectedLoan,
+              ),
+            ),
+          );
+          if (res == true) {
+            if (mounted) navigator.pop(true);
+          } else {
+            _reactivarEscaner();
+          }
+        } else {
+          _reactivarEscaner();
+        }
+      }
+    }
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
 
@@ -115,6 +403,67 @@ class _ScannerViewState extends State<ScannerView> {
         } else {
           _reactivarEscaner();
         }
+      } else if (rawUrl.startsWith('INVENTRA_VALE:')) {
+        final grupoId = rawUrl.substring('INVENTRA_VALE:'.length).trim();
+        if (grupoId.isEmpty) {
+          throw Exception('Código de vale no válido.');
+        }
+
+        final loans = await client
+            .from('prestamos')
+            .select('*, herramientas(*, ubicaciones(nombre), unidades_medida(nombre, abreviatura))')
+            .eq('grupo_id', grupoId)
+            .neq('estado', 'DEVUELTO')
+            .order('fecha_prestamo', ascending: true);
+
+        if (loans.isEmpty) {
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Vale Devuelto'),
+                  ],
+                ),
+                content: const Text('Todas las herramientas de este vale ya han sido devueltas por completo.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Aceptar'),
+                  ),
+                ],
+              ),
+            );
+          }
+          _reactivarEscaner();
+          return;
+        }
+
+        if (!mounted) return;
+
+        // Navigate to RegistrarMovimientoScreen with multiple tools/loans!
+        final res = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RegistrarMovimientoScreen(
+              herramientas: loans.map((l) => l['herramientas'] as Map<String, dynamic>).toList(),
+              tipoInicial: 'ENTRADA',
+              prestamosIniciales: List<Map<String, dynamic>>.from(loans),
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+
+        if (res == true) {
+          Navigator.pop(context, true);
+        } else {
+          _reactivarEscaner();
+        }
       } else {
         String? toolId;
         final uuidRegExp = RegExp(
@@ -140,24 +489,7 @@ class _ScannerViewState extends State<ScannerView> {
             .single();
 
         if (!mounted) return;
-
-        final res = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RegistrarMovimientoScreen(
-              herramienta: tool,
-              tipoInicial: widget.defaultTipo,
-            ),
-          ),
-        );
-
-        if (!mounted) return;
-
-        if (res == true) {
-          Navigator.pop(context, true);
-        } else {
-          _reactivarEscaner();
-        }
+        await _handleToolSelected(tool);
       }
     } catch (e) {
       if (!mounted) return;
@@ -450,28 +782,12 @@ class _ScannerViewState extends State<ScannerView> {
     setState(() => _isProcessing = true);
     try {
       if (!mounted) return;
-      final res = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RegistrarMovimientoScreen(
-            herramienta: tool,
-            tipoInicial: widget.defaultTipo,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-
-      if (res == true) {
-        Navigator.pop(context, true);
-      } else {
-        _reactivarEscaner();
-      }
+      await _handleToolSelected(tool);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al abrir registro de movimiento: ${e.toString()}'),
+          content: Text('Error al procesar herramienta seleccionada: ${e.toString()}'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -487,6 +803,7 @@ class _ScannerViewState extends State<ScannerView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Escanear Código QR'),
@@ -589,6 +906,136 @@ class _ScannerViewState extends State<ScannerView> {
               ),
             ),
           ),
+          
+          // Floating Cart Bar (Multi-herramienta)
+          if (widget.defaultTipo == 'SALIDA' && _carritoHerramientas.isNotEmpty)
+            Positioned(
+              bottom: 110,
+              left: 24,
+              right: 24,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF121624) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: _mostrarListaCarrito,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5E60E6).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.shopping_bag_outlined,
+                            color: Color(0xFF5E60E6),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InkWell(
+                          onTap: _mostrarListaCarrito,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Vale de Préstamo',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_carritoHerramientas.length} ${_carritoHerramientas.length == 1 ? "equipo" : "equipos"} (Ver lista)',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF5E60E6),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _carritoHerramientas.clear();
+                          });
+                        },
+                        child: const Text(
+                          'Limpiar',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          _scannerController.stop();
+                          final navigator = Navigator.of(context);
+                          final res = await navigator.push(
+                            MaterialPageRoute(
+                              builder: (context) => RegistrarMovimientoScreen(
+                                herramientas: _carritoHerramientas,
+                                tipoInicial: 'SALIDA',
+                              ),
+                            ),
+                          );
+                          if (res == true) {
+                            if (mounted) {
+                              navigator.pop(true);
+                            }
+                          } else {
+                            _reactivarEscaner();
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5E60E6),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Continuar',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, size: 14),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          
           // Indicador de carga
           if (_isProcessing)
             Container(

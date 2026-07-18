@@ -5,8 +5,8 @@ import 'package:inventra/core/config/app_config.dart';
 
 void main() {
   test('AppTheme configurations', () {
-    expect(AppTheme.accentColor, const Color(0xFF2563EB));
-    expect(AppTheme.primaryColor, const Color(0xFF0F172A));
+    expect(AppTheme.accentColor, const Color(0xFF5E60E6));
+    expect(AppTheme.primaryColor, const Color(0xFF0A0D14));
   });
 
   test('AppConfig constants are configured', () {

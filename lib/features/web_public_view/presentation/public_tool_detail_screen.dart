@@ -393,18 +393,68 @@ class _PublicToolDetailScreenState extends State<PublicToolDetailScreen> {
     );
   }
 
+  void _mostrarInformacionCompra(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.inventory_2_rounded, color: Color(0xFF5E60E6)),
+            SizedBox(width: 10),
+            Text('Adquiere INVENTRA', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Optimiza el stock de tu negocio con nuestra solución premium multiplataforma.',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            SizedBox(height: 16),
+            Text('✅ Códigos QR autogenerados y listos para imprimir.', style: TextStyle(fontSize: 13)),
+            Text('✅ Registro de vales de resguardo con firma digital táctil.', style: TextStyle(fontSize: 13)),
+            Text('✅ Historial automático y contabilidad de costos.', style: TextStyle(fontSize: 13)),
+            Text('✅ Modo offline para almacenes y talleres sin internet.', style: TextStyle(fontSize: 13)),
+            SizedBox(height: 20),
+            Divider(),
+            SizedBox(height: 12),
+            Text('📧 Contacto Comercial:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text('utoriental.mantenimiento@outlook.com', style: TextStyle(color: Color(0xFF5E60E6), fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5E60E6),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Cerrar'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final specs = _herramienta?['especificaciones'] as Map<String, dynamic>? ?? {};
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
       appBar: AppBar(
-        title: const Text('Consulta de Herramienta', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Ficha de Consulta', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: isDark ? const Color(0xFF0A0D14) : Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF5E60E6)))
           : _error != null
               ? Center(
                   child: Padding(
@@ -424,129 +474,231 @@ class _PublicToolDetailScreenState extends State<PublicToolDetailScreen> {
                   child: Center(
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 550),
-                      child: Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Imagen de la herramienta
-                            if (_herramienta!['foto_url'] != null)
-                              ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                child: CachedNetworkImage(
-                                  imageUrl: _herramienta!['foto_url'],
-                                  height: 250,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const SizedBox(
-                                    height: 250,
-                                    child: Center(child: CircularProgressIndicator()),
-                                  ),
-                                  errorWidget: (context, url, error) => const SizedBox(
-                                    height: 250,
-                                    child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                height: 200,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                child: const Icon(Icons.handyman_rounded, size: 64, color: Colors.grey),
-                              ),
-                            
-                            // Detalles
-                            Padding(
-                              padding: const EdgeInsets.all(20.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    _herramienta!['nombre'].toUpperCase(),
-                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  
-                                  // Badge de disponibilidad
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: _herramienta!['stock'] > 0 
-                                            ? Colors.green.shade50 
-                                            : Colors.red.shade50,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: _herramienta!['stock'] > 0 
-                                              ? Colors.green.shade200 
-                                              : Colors.red.shade200,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _herramienta!['stock'] > 0 
-                                            ? 'Disponible (${_herramienta!['stock']} piezas)' 
-                                            : 'Sin Existencias',
-                                        style: TextStyle(
-                                          color: _herramienta!['stock'] > 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  
-                                  // Especificaciones
-                                  const Text(
-                                    'ESPECIFICACIONES',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
-                                  ),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  
-                                  _buildSpecItem(Icons.branding_watermark_outlined, 'Marca', specs['marca']?.toString().isNotEmpty == true ? specs['marca'] : 'No especificada'),
-                                  _buildSpecItem(Icons.settings_outlined, 'Modelo', specs['modelo']?.toString().isNotEmpty == true ? specs['modelo'] : 'No especificado'),
-                                  _buildSpecItem(Icons.tag_rounded, 'Número de Serie', specs['n_serie']?.toString().isNotEmpty == true ? specs['n_serie'] : 'No especificado'),
-                                  _buildSpecItem(Icons.location_on_outlined, 'Ubicación Física', _herramienta!['ubicaciones']?['nombre'] ?? 'No especificada'),
-                                  
-                                  const SizedBox(height: 24),
-                                  
-                                  const Text(
-                                    'DESCRIPCIÓN',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
-                                  ),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _herramienta!['descripcion']?.toString().isNotEmpty == true 
-                                        ? _herramienta!['descripcion'] 
-                                        : 'Sin descripción disponible.',
-                                    style: const TextStyle(fontSize: 15, height: 1.4),
-                                  ),
-                                  
-                                  const SizedBox(height: 32),
-                                  
-                                  // Botón de Impresión
-                                  ElevatedButton.icon(
-                                    onPressed: _imprimirFichaTecnica,
-                                    icon: const Icon(Icons.print_rounded),
-                                    label: const Text('Descargar / Imprimir Ficha Técnica', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: colors.primary,
-                                      foregroundColor: colors.onPrimary,
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                  ),
-                                ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                width: 1.0,
                               ),
                             ),
-                          ],
-                        ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Imagen de la herramienta
+                                if (_herramienta!['foto_url'] != null)
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                    child: CachedNetworkImage(
+                                      imageUrl: _herramienta!['foto_url'],
+                                      height: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => const SizedBox(
+                                        height: 250,
+                                        child: Center(child: CircularProgressIndicator(color: Color(0xFF5E60E6))),
+                                      ),
+                                      errorWidget: (context, url, error) => const SizedBox(
+                                        height: 250,
+                                        child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    height: 200,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF121624) : Colors.grey.shade100,
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                    ),
+                                    child: const Icon(Icons.handyman_rounded, size: 64, color: Colors.grey),
+                                  ),
+                                
+                                // Detalles
+                                Padding(
+                                  padding: const EdgeInsets.all(20.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        _herramienta!['nombre'].toUpperCase(),
+                                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      
+                                      // Badge de disponibilidad
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: _herramienta!['stock'] > 0 
+                                                ? const Color(0xFF059669).withValues(alpha: 0.1) 
+                                                : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: _herramienta!['stock'] > 0 
+                                                  ? const Color(0xFF059669).withValues(alpha: 0.25) 
+                                                  : const Color(0xFFEF4444).withValues(alpha: 0.25),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: 6,
+                                                height: 6,
+                                                decoration: BoxDecoration(
+                                                  color: _herramienta!['stock'] > 0 ? const Color(0xFF059669) : const Color(0xFFEF4444),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                _herramienta!['stock'] > 0 
+                                                    ? 'Disponible (${_herramienta!['stock']} piezas)' 
+                                                    : 'Sin Existencias',
+                                                style: TextStyle(
+                                                  color: _herramienta!['stock'] > 0 ? const Color(0xFF059669) : const Color(0xFFEF4444),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      
+                                      // Especificaciones
+                                      const Text(
+                                        'ESPECIFICACIONES',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
+                                      ),
+                                      const Divider(),
+                                      const SizedBox(height: 8),
+                                      
+                                      _buildSpecItem(Icons.branding_watermark_outlined, 'Marca', specs['marca']?.toString().isNotEmpty == true ? specs['marca'] : 'No especificada'),
+                                      _buildSpecItem(Icons.settings_outlined, 'Modelo', specs['modelo']?.toString().isNotEmpty == true ? specs['modelo'] : 'No especificado'),
+                                      _buildSpecItem(Icons.tag_rounded, 'Número de Serie', specs['n_serie']?.toString().isNotEmpty == true ? specs['n_serie'] : 'No especificado'),
+                                      _buildSpecItem(Icons.location_on_outlined, 'Ubicación Física', _herramienta!['ubicaciones']?['nombre'] ?? 'No especificada'),
+                                      
+                                      const SizedBox(height: 24),
+                                      
+                                      const Text(
+                                        'DESCRIPCIÓN',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
+                                      ),
+                                      const Divider(),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _herramienta!['descripcion']?.toString().isNotEmpty == true 
+                                            ? _herramienta!['descripcion'] 
+                                            : 'Sin descripción disponible.',
+                                        style: const TextStyle(fontSize: 15, height: 1.4),
+                                      ),
+                                      
+                                      const SizedBox(height: 32),
+                                      
+                                      // Botón de Impresión
+                                      ElevatedButton.icon(
+                                        onPressed: _imprimirFichaTecnica,
+                                        icon: const Icon(Icons.print_rounded),
+                                        label: const Text('Descargar / Imprimir Ficha Técnica', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF5E60E6),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Tarjeta de Promoción (Creadora de Necesidad)
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF5E60E6), Color(0xFF4B4DCC)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF5E60E6).withValues(alpha: 0.25),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 22),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        '¿Quieres esto en tu negocio?',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Automatiza el control de tus herramientas y equipos. Escaneo de códigos QR, vales PDF con firma digital y control offline.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () => _mostrarInformacionCompra(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: const Color(0xFF5E60E6),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Probar Gratis / Solicitar Demo',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
                       ),
                     ),
                   ),

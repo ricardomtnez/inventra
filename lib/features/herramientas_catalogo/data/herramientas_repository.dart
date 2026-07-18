@@ -124,7 +124,7 @@ class HerramientasRepository {
       final cantidad = m['cantidad'] as int;
 
       if (tipo == 'SALIDA') {
-        if (motivo == 'PRESTAMO_ALUMNO_PROFESOR') {
+        if (motivo == 'PRESTAMO_ALUMNO_PROFESOR' || motivo == 'PRESTAMO') {
           prestadas += cantidad;
         } else if (motivo == 'BAJA_PERDIDA') {
           perdidas += cantidad;
