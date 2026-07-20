@@ -58,24 +58,24 @@ class _SplashScreenState extends State<SplashScreen>
     _logoScale = Tween<double>(begin: 0.75, end: 1.0).animate(
       CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
     );
-    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeOut),
-    );
+    _logoFade = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _logoController, curve: Curves.easeOut));
 
     // Textos: fade + slide up
     _textController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _textFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
-    );
+    _textFade = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
     _textSlide = Tween<Offset>(
       begin: const Offset(0, 0.15),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
-    );
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
 
     // Progress: animado lineal
     _progressController = AnimationController(
@@ -156,10 +156,8 @@ class _SplashScreenState extends State<SplashScreen>
       PageRouteBuilder(
         pageBuilder: (_, __, ___) =>
             isAuthed ? const DashboardScreen() : const LoginScreen(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 600),
       ),
     );
@@ -243,8 +241,9 @@ class _SplashScreenState extends State<SplashScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.accentTeal
-                              .withValues(alpha: _pulseOpacity.value),
+                          color: AppColors.accentTeal.withValues(
+                            alpha: _pulseOpacity.value,
+                          ),
                           blurRadius: 48,
                           spreadRadius: 12,
                         ),
@@ -309,6 +308,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
+  //
   Widget _buildProgressSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 48.0, vertical: 48.0),
@@ -348,44 +348,46 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildProgressBar() {
-    return LayoutBuilder(builder: (_, constraints) {
-      const barWidth = 200.0;
-      const barHeight = 2.0;
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        const barWidth = 200.0;
+        const barHeight = 2.0;
 
-      return SizedBox(
-        width: barWidth,
-        height: barHeight,
-        child: Stack(
-          children: [
-            // Track
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.bgDarkBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Fill con shimmer
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 50),
-              width: barWidth * _progressValue,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accentTeal, Color(0xFF80DEEA)],
+        return SizedBox(
+          width: barWidth,
+          height: barHeight,
+          child: Stack(
+            children: [
+              // Track
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.bgDarkBorder,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                borderRadius: BorderRadius.circular(2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentTeal.withValues(alpha: 0.6),
-                    blurRadius: 6,
-                    spreadRadius: 0,
-                  ),
-                ],
               ),
-            ),
-          ],
-        ),
-      );
-    });
+              // Fill con shimmer
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 50),
+                width: barWidth * _progressValue,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.accentTeal, Color(0xFF80DEEA)],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accentTeal.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
