@@ -45,7 +45,7 @@ A) ACCESO A SUPABASE (Backend y Base de datos):
 - Clave Anon (Pública): sb_publishable_Zv4F39afAj0P7YDp_0L9EA_ltvvX5NI
 - Enlace al Panel de Administración: https://supabase.com/dashboard
 - Correo de Administrador Supabase: utoriental.mantenimiento@outlook.com
-- Contraseña de Supabase: utoriental2026 / mantenimiento2026
+- Contraseña de Supabase: Mantenimiento2026*
 
 B) ACCESO A VERCEL (Hosting de Vista Pública Web):
 - Enlace al Panel de Vercel: https://vercel.com/dashboard
