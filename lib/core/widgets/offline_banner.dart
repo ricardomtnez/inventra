@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/connectivity_service.dart';
-import '../services/sync_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
+/// Banner animado que aparece/desaparece según el estado de conectividad.
+/// Diseño: pill flotante con animación de slide-down.
 class OfflineBanner extends StatelessWidget {
   const OfflineBanner({super.key});
 
@@ -9,65 +12,54 @@ class OfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: ConnectivityService().isOffline,
-      builder: (context, isOffline, child) {
-        if (isOffline) {
-          return Container(
-            width: double.infinity,
-            color: Colors.redAccent.shade700,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Modo sin conexión activo — Los movimientos se guardarán localmente',
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ValueListenableBuilder<int>(
-          valueListenable: SyncService().pendingCount,
-          builder: (context, count, child) {
-            if (count > 0) {
-              return Container(
-                width: double.infinity,
-                color: Colors.amber.shade700,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Sincronizando $count transacciones locales con la nube...',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return const SizedBox.shrink();
-          },
+      builder: (_, isOffline, __) {
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          transitionBuilder: (child, animation) => SizeTransition(
+            sizeFactor: animation,
+            alignment: Alignment.topCenter,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+          child: isOffline
+              ? _OfflinePill(key: const ValueKey('offline'))
+              : const SizedBox.shrink(key: ValueKey('online')),
         );
       },
+    );
+  }
+}
+
+class _OfflinePill extends StatelessWidget {
+  const _OfflinePill({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.accentAmberDim,
+        border: const Border(
+          bottom: BorderSide(color: AppColors.accentAmber, width: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.wifi_off_rounded,
+            color: AppColors.accentAmber,
+            size: 15,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Sin conexión — mostrando datos en caché',
+            style: AppTextStyles.labelSm.copyWith(
+              color: AppColors.accentAmber,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

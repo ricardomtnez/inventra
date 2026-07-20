@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1509,6 +1509,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                           controller: _folioController,
                           focusNode: _folioFocus,
                           keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.characters,
+                          inputFormatters: [
+                            TextInputFormatter.withFunction((oldValue, newValue) {
+                              return newValue.copyWith(
+                                text: newValue.text.toUpperCase(),
+                              );
+                            }),
+                          ],
                           decoration: InputDecoration(
                             labelText: 'Folio del Préstamo (VALE-XXXX)',
                             prefixIcon: const Icon(Icons.receipt_long_rounded),
@@ -1566,6 +1574,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                         controller: _responsableController,
                         focusNode: _responsableFocus,
                         enabled: _prestamoId == null && (_tipo == 'SALIDA' || _motivo == 'DEVOLUCION_PRESTAMO'),
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: InputDecoration(
                           labelText: _prestamoId != null
                               ? 'Responsable (Préstamo original)'
@@ -1588,6 +1604,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                         controller: _matriculaController,
                         focusNode: _matriculaFocus,
                         enabled: _prestamoId == null && (_tipo == 'SALIDA' || _motivo == 'DEVOLUCION_PRESTAMO'),
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: InputDecoration(
                           labelText: _prestamoId != null
                               ? 'Matrícula / ID (Préstamo original)'
@@ -1610,6 +1634,14 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                         controller: _observacionesController,
                         focusNode: _observacionesFocus,
                         maxLines: 3,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'Observaciones (Opcional)',
                           prefixIcon: Icon(Icons.rate_review_outlined),

@@ -61,15 +61,16 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/inventra_logo.png"
+  image_path: "Inventra.png"
+  min_sdk_android: 21
   web:
     generate: true
-    image_path: "assets/images/inventra_logo.png"
-    background_color: "#0A0D14"
-    theme_color: "#5E60E6"
+    image_path: "Inventra.png"
+    background_color: "#060D12"
+    theme_color: "#00BFA5"
   macos:
     generate: true
-    image_path: "assets/images/inventra_logo.png"
+    image_path: "Inventra.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -84,29 +85,13 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/fonts/
 
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
+  fonts:
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans-Variable.ttf
 
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf

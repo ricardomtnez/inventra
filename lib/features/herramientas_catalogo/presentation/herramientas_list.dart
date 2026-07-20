@@ -57,9 +57,23 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Catálogo',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/inventra_logo.png',
+              width: 24,
+              height: 24,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Catálogo',
+              style: TextStyle(
+                fontFamily: 'DMSans',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         actions: [
           PopupMenuButton<String>(
@@ -339,8 +353,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
                                 );
                               }
                             },
-                          ),
-                  ),
+                          )),
           ),
         ],
       ),
@@ -418,323 +431,14 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   }
 
   void _mostrarDetalleHerramienta(Map<String, dynamic> h) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final especificaciones =
-        h['especificaciones'] as Map<String, dynamic>? ?? {};
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 600),
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0A0D14) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 50,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: h['foto_url'] != null
-                      ? CachedNetworkImage(
-                          imageUrl: h['foto_url'],
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            width: 80,
-                            height: 80,
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
-                            width: 80,
-                            height: 80,
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Colors.grey,
-                              size: 32,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade200,
-                          child: const Icon(
-                            Icons.handyman_rounded,
-                            color: Colors.grey,
-                            size: 32,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        h['nombre'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 14,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            const Divider(),
-            const SizedBox(height: 10),
-            const Text(
-              'Especificaciones',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 10),
-            _buildSpecRow('Marca:', especificaciones['marca'] ?? 'Sin marca'),
-            _buildSpecRow(
-              'Modelo:',
-              especificaciones['modelo'] ?? 'Sin modelo',
-            ),
-            _buildSpecRow(
-              'Número de Serie:',
-              especificaciones['n_serie'] ?? 'Sin número de serie',
-            ),
-            if (h['descripcion'] != null &&
-                h['descripcion'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                h['descripcion'],
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ],
-            const SizedBox(height: 20),
-
-            const Divider(),
-            const SizedBox(height: 10),
-            const Text(
-              'Resumen de Inventario y Valoración',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 12),
-
-            FutureBuilder<Map<String, int>>(
-              future: _repository.obtenerEstadisticasMovimientos(h['id']),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0),
-                    child: Text(
-                      'Error al cargar métricas: ${snapshot.error}',
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                      ),
-                    ),
-                  );
-                }
-
-                final stats = snapshot.data!;
-                final stock = h['stock'] as int;
-                final prestadas = stats['prestadas'] ?? 0;
-                final perdidas = stats['perdidas'] ?? 0;
-                final descompostura = stats['descompostura'] ?? 0;
-                final costoPromedio =
-                    double.tryParse(h['costo_promedio'].toString()) ?? 0.0;
-                final valorTotal = stock * costoPromedio;
-
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Disponibles',
-                            value:
-                                '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
-                            icon: Icons.check_circle_outline_rounded,
-                            color: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Prestados',
-                            value:
-                                '$prestadas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
-                            icon: Icons.handshake_outlined,
-                            color: Colors.amber.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Bajas Pérdida',
-                            value:
-                                '$perdidas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
-                            icon: Icons.search_off_rounded,
-                            color: Colors.red.shade400,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Bajas Daño',
-                            value:
-                                '$descompostura ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
-                            icon: Icons.build_circle_outlined,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF5E60E6).withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Valor Total Inventariado',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '\$${valorTotal.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF5E60E6),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'Costo Promedio',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '\$${costoPromedio.toStringAsFixed(2)} c/u',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            SafeArea(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context); // Close bottom sheet
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          QrPrintSelectorScreen(herramientas: [h]),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.qr_code_rounded),
-                label: const Text('Imprimir QR'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => _ToolDetailModal(
+        herramienta: h,
+        repository: _repository,
       ),
     );
   }
@@ -750,7 +454,11 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 600),
-      builder: (context) => Container(
+      builder: (context) => NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification notification) {
+          return true; // Evita overscroll
+        },
+        child: Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -880,8 +588,9 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _irARegistrar(
     BuildContext context,
@@ -901,72 +610,7 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
     if (res == true) onSuccess();
   }
 
-  Widget _buildSpecRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildToolCard(Map<String, dynamic> h, String id, int stock, bool isSelected, ColorScheme colors) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1249,6 +893,429 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
               ),
               child: cardWidget,
             ),
+    );
+  }
+}
+
+class _ToolDetailModal extends StatefulWidget {
+  final Map<String, dynamic> herramienta;
+  final HerramientasRepository repository;
+
+  const _ToolDetailModal({
+    required this.herramienta,
+    required this.repository,
+  });
+
+  @override
+  State<_ToolDetailModal> createState() => _ToolDetailModalState();
+}
+
+class _ToolDetailModalState extends State<_ToolDetailModal> {
+  late final Future<Map<String, int>> _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _statsFuture = widget.repository.obtenerEstadisticasMovimientos(widget.herramienta['id']);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = widget.herramienta;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final especificaciones = h['especificaciones'] as Map<String, dynamic>? ?? {};
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification notification) {
+        return true; // Detiene la propagación de eventos de scroll
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0A0D14) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: SingleChildScrollView(
+          controller: ScrollController(),
+          primary: false,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: h['foto_url'] != null
+                        ? CachedNetworkImage(
+                            imageUrl: h['foto_url'],
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.grey,
+                                size: 32,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.handyman_rounded,
+                              color: Colors.grey,
+                              size: 32,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          h['nombre'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                h['ubicaciones']?['nombre'] ?? 'Sin ubicación',
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                'Especificaciones',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 10),
+              _buildSpecRow('Marca:', especificaciones['marca'] ?? 'Sin marca'),
+              _buildSpecRow(
+                'Modelo:',
+                especificaciones['modelo'] ?? 'Sin modelo',
+              ),
+              _buildSpecRow(
+                'Número de Serie:',
+                especificaciones['n_serie'] ?? 'Sin número de serie',
+              ),
+              if (h['descripcion'] != null &&
+                  h['descripcion'].toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  h['descripcion'],
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 20),
+
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                'Resumen de Inventario y Valoración',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 12),
+
+              FutureBuilder<Map<String, int>>(
+                future: _statsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10.0),
+                      child: Text(
+                        'Error al cargar métricas: ${snapshot.error}',
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final stats = snapshot.data!;
+                  final stock = h['stock'] as int;
+                  final prestadas = stats['prestadas'] ?? 0;
+                  final perdidas = stats['perdidas'] ?? 0;
+                  final descompostura = stats['descompostura'] ?? 0;
+                  final costoPromedio =
+                      double.tryParse(h['costo_promedio'].toString()) ?? 0.0;
+                  final valorTotal = stock * costoPromedio;
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              title: 'Disponibles',
+                              value:
+                                  '$stock ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                              icon: Icons.check_circle_outline_rounded,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildStatCard(
+                              title: 'Prestados',
+                              value:
+                                  '$prestadas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                              icon: Icons.handshake_outlined,
+                              color: Colors.amber.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              title: 'Bajas Pérdida',
+                              value:
+                                  '$perdidas ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                              icon: Icons.search_off_rounded,
+                              color: Colors.red.shade400,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildStatCard(
+                              title: 'Bajas Daño',
+                              value:
+                                  '$descompostura ${h['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                              icon: Icons.build_circle_outlined,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF5E60E6).withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Valor Total Inventariado',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '\$${valorTotal.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF5E60E6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  'Costo Promedio',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '\$${costoPromedio.toStringAsFixed(2)} c/u',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              SafeArea(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context); // Close bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            QrPrintSelectorScreen(herramientas: [h]),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.qr_code_rounded),
+                  label: const Text('Imprimir QR'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

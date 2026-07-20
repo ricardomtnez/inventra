@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pdf/pdf.dart';
@@ -1046,15 +1044,15 @@ class _QrPrintSelectorScreenState extends State<QrPrintSelectorScreen> {
                                   mimeType: 'image/png',
                                 );
                               } else {
-                                final tempDir = await getTemporaryDirectory();
-                                final file = await File(
-                                  '${tempDir.path}/qr_${herramienta['nombre'].toString().replaceAll(' ', '_')}.png',
-                                ).create();
-                                await file.writeAsBytes(pngBytes);
-
                                 final params = ShareParams(
                                   text: 'Código QR de ${herramienta['nombre']}',
-                                  files: [XFile(file.path)],
+                                  files: [
+                                    XFile.fromData(
+                                      pngBytes,
+                                      name: 'qr_${herramienta['nombre'].toString().replaceAll(' ', '_')}.png',
+                                      mimeType: 'image/png',
+                                    ),
+                                  ],
                                 );
                                 await SharePlus.instance.share(params);
                               }

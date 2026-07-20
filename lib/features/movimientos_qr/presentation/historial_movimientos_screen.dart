@@ -12,6 +12,8 @@ import '../../herramientas_catalogo/data/herramientas_repository.dart';
 import '../../../core/presentation/pdf_viewer_screen.dart';
 import '../../../core/utils/pdf_download_helper.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 
 class HistorialMovimientosScreen extends StatefulWidget {
   const HistorialMovimientosScreen({super.key});
@@ -854,12 +856,24 @@ class _HistorialMovimientosScreenState
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: AppColors.bgDark,
       appBar: AppBar(
-        title: const Text(
-          'Historial de Movimientos',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/inventra_logo.png',
+              width: 24,
+              height: 24,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Historial',
+              style: AppTextStyles.headlineMd.copyWith(
+                color: AppColors.textPrimaryDark,
+              ),
+            ),
+          ],
         ),
       ),
       body: Column(
@@ -867,35 +881,22 @@ class _HistorialMovimientosScreenState
           const OfflineBanner(),
           Expanded(
             child: _isLoading && _movimientos.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        color: AppColors.accentTeal,
+                        strokeWidth: 2.5,
+                      ),
+                    ),
+                  )
                 : RefreshIndicator(
+                    color: AppColors.accentTeal,
+                    backgroundColor: AppColors.bgDarkSecondary,
                     onRefresh: _cargarHistorial,
                     child: _movimientos.isEmpty
-                        ? ListView(
-                            children: [
-                              SizedBox(
-                                height:
-                                    MediaQuery.of(context).size.height * 0.7,
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.history_toggle_off_rounded,
-                                        size: 64,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      const Text(
-                                        'No hay transacciones de inventario registradas.',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
+                        ? _buildEmptyState()
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               if (constraints.maxWidth > 650) {
@@ -905,28 +906,24 @@ class _HistorialMovimientosScreenState
                                   gridDelegate:
                                       const SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: 460,
-                                        mainAxisSpacing: 16,
-                                        crossAxisSpacing: 16,
-                                        childAspectRatio: 3.0,
+                                        mainAxisSpacing: 12,
+                                        crossAxisSpacing: 12,
+                                        childAspectRatio: 3.2,
                                       ),
-                                  itemBuilder: (context, index) {
-                                    final m = _movimientos[index];
-                                    return _buildMovimientoCard(m, colors);
-                                  },
+                                  itemBuilder: (context, index) =>
+                                      _buildMovimientoItem(_movimientos[index]),
                                 );
                               } else {
                                 return Center(
-                                  child: Container(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 800,
-                                    ),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.all(16),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 800),
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                                       itemCount: _movimientos.length,
-                                      itemBuilder: (context, index) {
-                                        final m = _movimientos[index];
-                                        return _buildMovimientoItem(m, colors);
-                                      },
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (_, index) =>
+                                          _buildMovimientoItem(_movimientos[index]),
                                     ),
                                   ),
                                 );
@@ -940,48 +937,107 @@ class _HistorialMovimientosScreenState
     );
   }
 
-  Widget _buildMovimientoCard(Map<String, dynamic> m, ColorScheme colors) {
+  Widget _buildEmptyState() {
+    return ListView(
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.bgDarkSecondary,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.bgDarkBorder),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 32,
+                    color: AppColors.textMutedDark,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Sin movimientos registrados',
+                  style: AppTextStyles.headlineSm.copyWith(
+                    color: AppColors.textSecondaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Las transacciones de inventario\naparecerán aquí.',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.textMutedDark,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMovimientoItem(Map<String, dynamic> m) {
     final tipo = m['tipo'] as String;
+    final isEntrada = tipo == 'ENTRADA';
     final folio = m['folio'] ?? 0;
-    final folioStr = tipo == 'ENTRADA'
+    final folioStr = isEntrada
         ? 'E-${folio.toString().padLeft(6, '0')}'
         : 'VALE-${folio.toString().padLeft(6, '0')}';
-    final dateStr = DateTime.parse(
-      m['fecha'],
-    ).toLocal().toString().split(' ')[0];
+
+    // Parsear fecha
+    final dateTime = DateTime.parse(m['fecha']).toLocal();
+    final dateStr =
+        '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
+    final timeStr =
+        '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+
     final toolName = m['herramientas']?['nombre'] ?? 'N/A';
     final wasEdited = m['observacion_edicion'] != null;
+    final isDevuelto =
+        m['prestamos'] != null && m['prestamos']['estado'] == 'DEVUELTO';
+    final cantidad = m['cantidad'] as int? ?? 0;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    // Colores semánticos
+    final Color typeColor = isEntrada ? AppColors.accentGreen : AppColors.accentAmber;
+    final IconData typeIcon =
+        isEntrada ? Icons.login_rounded : Icons.logout_rounded;
+    final String cantPrefix = isEntrada ? '+' : '−';
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: () => _mostrarDetalleMovimiento(m),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        borderRadius: BorderRadius.circular(16),
+        splashColor: typeColor.withValues(alpha: 0.08),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.bgDarkSecondary,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.bgDarkBorder, width: 1),
+          ),
           child: Row(
             children: [
-              // Icono indicador Entrada/Salida
+              // Indicador de tipo
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: tipo == 'ENTRADA'
-                      ? Colors.green.withValues(alpha: 0.12)
-                      : Colors.red.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+                  color: typeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  tipo == 'ENTRADA'
-                      ? Icons.login_rounded
-                      : Icons.logout_rounded,
-                  color: tipo == 'ENTRADA' ? Colors.green : Colors.red,
-                  size: 20,
-                ),
+                child: Icon(typeIcon, color: typeColor, size: 22),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
 
-              // Información de transacción
+              // Info principal
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -990,70 +1046,44 @@ class _HistorialMovimientosScreenState
                       children: [
                         Text(
                           folioStr,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.grey,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMutedDark,
+                            fontFamily: 'Inter',
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        if (wasEdited)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Corregido',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amber.shade900,
-                              ),
-                            ),
+                        if (wasEdited) ...[  
+                          const SizedBox(width: 6),
+                          _buildStatusChip(
+                            'Corregido',
+                            AppColors.accentAmber,
+                            AppColors.accentAmberDim,
                           ),
-                        if (m['prestamos'] != null &&
-                            m['prestamos']['estado'] == 'DEVUELTO') ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Devuelto',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade900,
-                              ),
-                            ),
+                        ],
+                        if (isDevuelto) ...[  
+                          const SizedBox(width: 6),
+                          _buildStatusChip(
+                            'Devuelto',
+                            AppColors.accentTeal,
+                            AppColors.accentTealDim,
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       toolName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                      style: AppTextStyles.headlineSm.copyWith(
+                        color: AppColors.textPrimaryDark,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
-                      'Responsable: ${m['responsable_nombre'] ?? 'Sin asignar'}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      m['responsable_nombre'] ?? 'Sin asignar',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondaryDark,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1061,24 +1091,31 @@ class _HistorialMovimientosScreenState
                 ),
               ),
 
-              // Cantidad
+              const SizedBox(width: 12),
+
+              // Cantidad + fecha
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${tipo == 'ENTRADA' ? '+' : '-'}${m['cantidad']}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: tipo == 'ENTRADA'
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
+                    '$cantPrefix$cantidad',
+                    style: AppTextStyles.dataLg.copyWith(
+                      color: typeColor,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     dateStr,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMutedDark,
+                    ),
+                  ),
+                  Text(
+                    timeStr,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMutedDark,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
@@ -1089,10 +1126,22 @@ class _HistorialMovimientosScreenState
     );
   }
 
-  Widget _buildMovimientoItem(Map<String, dynamic> m, ColorScheme colors) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: _buildMovimientoCard(m, colors),
+  Widget _buildStatusChip(String label, Color fg, Color bg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: fg.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.overline.copyWith(
+          color: fg,
+          letterSpacing: 0.5,
+          fontSize: 9,
+        ),
+      ),
     );
   }
 }

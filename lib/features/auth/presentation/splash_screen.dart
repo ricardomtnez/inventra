@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/services/connectivity_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
 import '../data/auth_repository.dart';
 import 'login_screen.dart';
@@ -12,95 +14,122 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late final AnimationController _entranceController;
-  late final AnimationController _glowController;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _glowAnimation;
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
+  // ── Controllers ──────────────────────────────────────────────────────────
+  late final AnimationController _logoController;
+  late final AnimationController _textController;
+  late final AnimationController _progressController;
+  late final AnimationController _pulseController;
 
-  final List<String> _loadingTexts = [
+  // ── Animations ────────────────────────────────────────────────────────────
+  late final Animation<double> _logoScale;
+  late final Animation<double> _logoFade;
+  late final Animation<double> _textFade;
+  late final Animation<Offset> _textSlide;
+  late final Animation<double> _pulseOpacity;
+
+  double _progressValue = 0.0;
+  String _statusText = 'Inicializando sistema...';
+  Timer? _progressTimer;
+
+  final List<String> _statusMessages = [
     'Inicializando sistema...',
-    'Estableciendo enlace con Supabase...',
-    'Sincronizando inventario de herramientas...',
-    'Cargando catálogo de equipos...',
+    'Estableciendo conexión segura...',
+    'Sincronizando inventario...',
     'Verificando sesión...',
   ];
-  
-  String _currentText = 'Iniciando...';
-  int _textIndex = 0;
-  double _progressValue = 0.0;
-  Timer? _textTimer;
-  Timer? _progressTimer;
+  int _msgIndex = 0;
+  Timer? _msgTimer;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+    _startSequence();
+  }
 
-    // 1. Configurar animaciones de entrada (Logo & Textos)
-    _entranceController = AnimationController(
+  void _setupAnimations() {
+    // Logo: escala + fade in
+    _logoController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 900),
+    );
+    _logoScale = Tween<double>(begin: 0.75, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
+    );
+    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.easeOut),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: Curves.elasticOut,
-      ),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
-      ),
-    );
-
-    // 2. Configurar animación de resplandor infinito para el logo
-    _glowController = AnimationController(
+    // Textos: fade + slide up
+    _textController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 600),
+    );
+    _textFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
+    );
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
     );
 
-    _glowAnimation = Tween<double>(begin: 20.0, end: 45.0).animate(
-      CurvedAnimation(
-        parent: _glowController,
-        curve: Curves.easeInOut,
-      ),
+    // Progress: animado lineal
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
     );
 
-    _entranceController.forward();
-    _glowController.repeat(reverse: true);
+    // Pulso: glow pulsante en el logo
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _pulseOpacity = Tween<double>(begin: 0.0, end: 0.35).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
 
-    // 3. Temporizador de textos dinámicos (más espaciado para permitir lectura)
-    _currentText = _loadingTexts[_textIndex];
-    _textTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) {
-      if (mounted) {
-        setState(() {
-          _textIndex = (_textIndex + 1) % _loadingTexts.length;
-          _currentText = _loadingTexts[_textIndex];
-        });
-      }
-    });
+  Future<void> _startSequence() async {
+    // 1. Logo entra
+    await _logoController.forward();
 
-    // 4. Temporizador del progreso de carga (2.5 segundos de duración mínima)
-    const int totalSteps = 50;
-    const double stepSize = 1.0 / totalSteps;
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (mounted) {
-        setState(() {
-          _progressValue += stepSize;
-          if (_progressValue >= 1.0) {
-            _progressValue = 1.0;
-            _progressTimer?.cancel();
-          }
-        });
-      }
-    });
+    // 2. Texto aparece tras logo
+    await Future.delayed(const Duration(milliseconds: 100));
+    _textController.forward();
 
-    // 5. Iniciar la verificación de sesión
+    // 3. Pulso y progreso
+    _pulseController.repeat(reverse: true);
+    _startProgress();
+    _startMessages();
+
+    // 4. Verificar sesión en paralelo
     _ejecutarInicializacion();
+  }
+
+  void _startProgress() {
+    const steps = 56;
+    const step = 1.0 / steps;
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 50), (t) {
+      if (!mounted) return;
+      setState(() {
+        _progressValue = (_progressValue + step).clamp(0.0, 1.0);
+        if (_progressValue >= 1.0) t.cancel();
+      });
+    });
+  }
+
+  void _startMessages() {
+    _msgTimer = Timer.periodic(const Duration(milliseconds: 900), (t) {
+      if (!mounted) return;
+      setState(() {
+        _msgIndex = (_msgIndex + 1) % _statusMessages.length;
+        _statusText = _statusMessages[_msgIndex];
+      });
+    });
   }
 
   Future<void> _ejecutarInicializacion() async {
@@ -112,35 +141,25 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       try {
         await authRepository.loadRoles();
       } catch (_) {
-        // Si falla por falta de internet (offline), mantenemos la sesión local.
-        // Solo desautorizamos si realmente estamos online y la sesión es inválida.
         final isOffline = ConnectivityService().isOffline.value;
-        if (!isOffline) {
-          isAuthed = false;
-        }
+        if (!isOffline) isAuthed = false;
       }
     }
 
-    // Asegurar que la pantalla dure al menos 2.8 segundos para visualización de marca
+    // Pantalla visible mínimo 2.8 s
     final elapsed = DateTime.now().difference(startTime);
     final remaining = const Duration(milliseconds: 2800) - elapsed;
-    if (remaining > Duration.zero) {
-      await Future.delayed(remaining);
-    }
+    if (remaining > Duration.zero) await Future.delayed(remaining);
 
     if (!mounted) return;
-
-    // Navegar con una transición suave de desvanecimiento
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
+        pageBuilder: (_, __, ___) =>
             isAuthed ? const DashboardScreen() : const LoginScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
         transitionDuration: const Duration(milliseconds: 600),
       ),
     );
@@ -148,163 +167,253 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   @override
   void dispose() {
-    _textTimer?.cancel();
+    _logoController.dispose();
+    _textController.dispose();
+    _progressController.dispose();
+    _pulseController.dispose();
     _progressTimer?.cancel();
-    _entranceController.dispose();
-    _glowController.dispose();
+    _msgTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0D14),
-      body: SizedBox(
+      backgroundColor: AppColors.bgDark,
+      body: Container(
         width: double.infinity,
         height: double.infinity,
+        decoration: const BoxDecoration(gradient: AppColors.splashGradient),
         child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Stack(
             children: [
-              const SizedBox(height: 40),
-              // Central Block: Animated Logo and Title
-              Column(
-                mainAxisSize: MainAxisSize.min,
+              // ── Dot grid pattern (sutil) ──────────────────────────────
+              Positioned.fill(child: _DotGridPainter()),
+
+              // ── Contenido principal ───────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Spacer(flex: 3),
+
+                    // Logo con glow animado
+                    Center(child: _buildLogoSection()),
+
+                    const SizedBox(height: 36),
+
+                    // Wordmark + tagline
+                    Center(child: _buildWordmark()),
+
+                    const Spacer(flex: 3),
+
+                    // Status + progress
+                    Center(child: _buildProgressSection()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoSection() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_logoScale, _logoFade, _pulseOpacity]),
+      builder: (_, __) {
+        return FadeTransition(
+          opacity: _logoFade,
+          child: ScaleTransition(
+            scale: _logoScale,
+            child: SizedBox(
+              width: 140,
+              height: 140,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  AnimatedBuilder(
-                    animation: Listenable.merge([_scaleAnimation, _glowAnimation]),
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _scaleAnimation.value,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: const Color(0xFF5E60E6).withValues(alpha: 0.2),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
-                                blurRadius: _glowAnimation.value / 2,
-                                spreadRadius: 1,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: Image.asset(
-                              'assets/images/inventra_logo.png',
-                              width: 140,
-                              height: 140,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            'INVENTRA',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 10,
-                              color: Colors.white,
-                              fontFamily: Theme.of(context).textTheme.headlineLarge?.fontFamily,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Padding(
-                          padding: EdgeInsets.only(left: 2.0),
-                          child: Text(
-                            'CONTROL INTELIGENTE DE STOCK',
-                            style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 2.0,
-                            ),
-                          ),
+                  // Glow ring pulsante
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentTeal
+                              .withValues(alpha: _pulseOpacity.value),
+                          blurRadius: 48,
+                          spreadRadius: 12,
                         ),
                       ],
+                    ),
+                  ),
+                  // Logo container
+                  Container(
+                    width: 116,
+                    height: 116,
+                    decoration: BoxDecoration(
+                      color: AppColors.bgDarkSecondary,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: AppColors.accentTeal.withValues(alpha: 0.25),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(27),
+                      child: Image.asset(
+                        'assets/images/inventra_logo.png',
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ],
               ),
-            // Bottom Block: Loading indicator & Status text
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 48.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    switchInCurve: const Interval(0.5, 1.0, curve: Curves.easeIn),
-                    switchOutCurve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.15),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: Text(
-                      _currentText,
-                      key: ValueKey<String>(_currentText),
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: 200,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Stack(
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 50),
-                          width: 200 * _progressValue,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF5E60E6),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ],
-                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWordmark() {
+    return FadeTransition(
+      opacity: _textFade,
+      child: SlideTransition(
+        position: _textSlide,
+        child: Column(
+          children: [
+            Text(
+              'INVENTRA',
+              style: AppTextStyles.display.copyWith(
+                color: AppColors.textPrimaryDark,
+                letterSpacing: 6,
+                fontSize: 32,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'CONTROL INTELIGENTE DE STOCK',
+              style: AppTextStyles.overline.copyWith(
+                color: AppColors.textSecondaryDark,
+                letterSpacing: 3.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 48.0, vertical: 48.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Status text animado
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.2),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
+            child: Text(
+              _statusText,
+              key: ValueKey(_statusText),
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondaryDark,
+                letterSpacing: 0.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Progress bar premium
+          _buildProgressBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return LayoutBuilder(builder: (_, constraints) {
+      const barWidth = 200.0;
+      const barHeight = 2.0;
+
+      return SizedBox(
+        width: barWidth,
+        height: barHeight,
+        child: Stack(
+          children: [
+            // Track
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.bgDarkBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Fill con shimmer
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 50),
+              width: barWidth * _progressValue,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.accentTeal, Color(0xFF80DEEA)],
+                ),
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accentTeal.withValues(alpha: 0.6),
+                    blurRadius: 6,
+                    spreadRadius: 0,
                   ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    ),
-  );
+      );
+    });
+  }
 }
+
+// ── Dot Grid Painter ─────────────────────────────────────────────────────────
+class _DotGridPainter extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _DotGridCustomPainter());
+  }
+}
+
+class _DotGridCustomPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.accentTeal.withValues(alpha: 0.04)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 28.0;
+    const dotRadius = 1.2;
+
+    for (double x = spacing; x < size.width; x += spacing) {
+      for (double y = spacing; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotGridCustomPainter old) => false;
 }

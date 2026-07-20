@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../data/auth_repository.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,25 +12,34 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authRepository = AuthRepository();
   static const _secureStorage = FlutterSecureStorage();
-  
+
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
 
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnim;
+
   @override
   void initState() {
     super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _fadeController.forward();
     _loadSavedCredentials();
-    // Comprobar si hay una sesión persistente al iniciar la pantalla
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _verificarAutoLogin();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _verificarAutoLogin());
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -58,22 +69,15 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
-              pageBuilder: (context, anim, secAnim) => const DashboardScreen(),
-              transitionsBuilder: (context, anim, secAnim, child) =>
+              pageBuilder: (_, __, ___) => const DashboardScreen(),
+              transitionsBuilder: (_, anim, __, child) =>
                   FadeTransition(opacity: anim, child: child),
               transitionDuration: const Duration(milliseconds: 500),
             ),
           );
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al restaurar sesión: ${e.toString()}'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
+        if (mounted) _showError('Error al restaurar sesión: ${e.toString()}');
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -90,11 +94,12 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
 
-      // Guardar o borrar credenciales en secure storage tras login exitoso
       if (_rememberMe) {
         await _secureStorage.write(key: 'remember_me', value: 'true');
-        await _secureStorage.write(key: 'saved_email', value: _emailController.text.trim());
-        await _secureStorage.write(key: 'saved_password', value: _passwordController.text.trim());
+        await _secureStorage.write(
+            key: 'saved_email', value: _emailController.text.trim());
+        await _secureStorage.write(
+            key: 'saved_password', value: _passwordController.text.trim());
       } else {
         await _secureStorage.write(key: 'remember_me', value: 'false');
         await _secureStorage.delete(key: 'saved_email');
@@ -104,8 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, anim, secAnim) => const DashboardScreen(),
-            transitionsBuilder: (context, anim, secAnim, child) =>
+            pageBuilder: (_, __, ___) => const DashboardScreen(),
+            transitionsBuilder: (_, anim, __, child) =>
                 FadeTransition(opacity: anim, child: child),
             transitionDuration: const Duration(milliseconds: 500),
           ),
@@ -113,373 +118,524 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de Autenticación: ${e.toString()}'),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        _showError('Credenciales incorrectas. Verifica tu correo y contraseña.');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppColors.accentRed, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.textPrimaryDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // Si la pantalla es ancha (Web / Tablet), usamos pantalla dividida
-          if (constraints.maxWidth >= 768) {
-            return Row(
+      backgroundColor: AppColors.bgDark,
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 768) {
+              return _buildDesktopLayout(constraints);
+            }
+            return _buildMobileLayout();
+          },
+        ),
+      ),
+    );
+  }
+
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
+  Widget _buildDesktopLayout(BoxConstraints constraints) {
+    return Row(
+      children: [
+        // Panel izquierdo: Branding
+        Expanded(
+          flex: 5,
+          child: Container(
+            height: double.infinity,
+            color: AppColors.bgDark,
+            child: Stack(
               children: [
-                // Panel Izquierdo: Branding & Promoción de la Aplicación
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    height: double.infinity,
-                    color: const Color(0xFF0A0D14),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(48.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Logo de la Aplicación con resplandor suave
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF5E60E6).withValues(alpha: 0.12),
-                                    blurRadius: 24,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: Image.asset(
-                                  'assets/images/inventra_logo.png',
-                                  width: 90,
-                                  height: 90,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-                            const Text(
-                              'INVENTRA',
-                              style: TextStyle(
-                                fontSize: 38,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 8,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Control de inventario y trazabilidad de herramientas en tiempo real para tu taller o almacén.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF94A3B8),
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 48),
-                            // Características clave
-                            _buildFeatureRow(Icons.qr_code_scanner_rounded, 'Escaneo QR Instantáneo', 'Asigna y recibe herramientas leyendo códigos QR.'),
-                            _buildFeatureRow(Icons.inventory_2_outlined, 'Control de Stock Dinámico', 'Monitoreo de disponibilidad y alertas automáticas.'),
-                            _buildFeatureRow(Icons.analytics_outlined, 'Costo Promedio Ponderado', 'Cálculo contable automatizado en cada entrada.'),
-                            _buildFeatureRow(Icons.picture_as_pdf_outlined, 'Generación de Vales en PDF', 'Descarga y firma digital de vales de resguardo.'),
-                          ],
-                        ),
-                      ),
-                    ),
+                // Dot grid background
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _SubtleDotGridPainter(),
                   ),
                 ),
-                // Panel Derecho: Formulario de Login (limitando ancho máximo)
-                Expanded(
-                  flex: 5,
+                // Gradiente derecho para separación visual
+                Positioned.fill(
                   child: Container(
-                    color: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 48.0, vertical: 24.0),
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 420),
-                          child: _buildLoginForm(context),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          } else {
-            // Layout Móvil (iPhone, Xiaomi, Samsung)
-            return Container(
-              height: double.infinity,
-              width: double.infinity,
-              color: isDark ? const Color(0xFF0A0D14) : const Color(0xFFFAFBFD),
-              child: SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 450),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Logo
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
-                                width: 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF5E60E6).withValues(alpha: 0.15),
-                                  blurRadius: 20,
-                                  spreadRadius: 1,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Image.asset(
-                                'assets/images/inventra_logo.png',
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'INVENTRA',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 8,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Control Inteligente de Herramientas',
-                            style: TextStyle(color: Color(0xFF64748B), fontSize: 13, letterSpacing: 0.5),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 36),
-                          _buildLoginForm(context),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.transparent,
+                          Color(0x20060D12),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildLoginForm(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-          width: 1.0,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(28.0),
-        child: _isLoading && _emailController.text.isEmpty
-            ? const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: Color(0xFF5E60E6)),
-                  SizedBox(height: 20),
-                  Text(
-                    'Restaurando sesión...',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
-              )
-            : Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Iniciar Sesión',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Ingresa tus credenciales para continuar',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 28),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo Electrónico',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Ingresa tu correo electrónico';
-                        }
-                        final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                        if (!emailRegExp.hasMatch(v)) {
-                          return 'Ingresa un correo electrónico válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _handleLogin(),
-                      decoration: InputDecoration(
-                        labelText: 'Contraseña',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(56.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: Checkbox(
-                            value: _rememberMe,
-                            activeColor: const Color(0xFF5E60E6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _rememberMe = value ?? false;
-                              });
-                            },
+                        // Logo
+                        _buildLogoWidget(size: 80),
+                        const SizedBox(height: 40),
+                        // Wordmark
+                        Text(
+                          'INVENTRA',
+                          style: AppTextStyles.display.copyWith(
+                            color: AppColors.textPrimaryDark,
+                            letterSpacing: 5,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _rememberMe = !_rememberMe;
-                            });
-                          },
-                          child: const Text(
-                            'Recordar datos',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Control inteligente de inventario\ny trazabilidad de herramientas.',
+                          style: AppTextStyles.bodyLg.copyWith(
+                            color: AppColors.textSecondaryDark,
+                            height: 1.6,
                           ),
+                        ),
+                        const SizedBox(height: 52),
+                        // Feature pills
+                        _buildFeaturePill(
+                          Icons.qr_code_scanner_rounded,
+                          'Escaneo QR Instantáneo',
+                          'Registra entradas y salidas en segundos',
+                        ),
+                        const SizedBox(height: 20),
+                        _buildFeaturePill(
+                          Icons.inventory_2_outlined,
+                          'Stock en Tiempo Real',
+                          'Alertas automáticas y disponibilidad live',
+                        ),
+                        const SizedBox(height: 20),
+                        _buildFeaturePill(
+                          Icons.picture_as_pdf_outlined,
+                          'Vales Digitales PDF',
+                          'Firma digital y descarga inmediata',
+                        ),
+                        const SizedBox(height: 20),
+                        _buildFeaturePill(
+                          Icons.analytics_outlined,
+                          'Costo Promedio Ponderado',
+                          'Contabilidad automatizada en cada entrada',
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : const Text('Iniciar Sesión', style: TextStyle(fontSize: 16)),
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureRow(IconData icon, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF5E60E6).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: const Color(0xFF818CF8), size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF94A3B8),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+
+        // Separador vertical con glow
+        Container(
+          width: 1,
+          color: AppColors.bgDarkBorder,
+        ),
+
+        // Panel derecho: Form
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: AppColors.bgDarkSecondary,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 56.0, vertical: 32.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: _buildLoginForm(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
+  Widget _buildMobileLayout() {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppColors.splashGradient),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(painter: _SubtleDotGridPainter()),
+            ),
+            Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0, vertical: 32.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Logo + wordmark compacto
+                      _buildLogoWidget(size: 100),
+                      const SizedBox(height: 20),
+                      Text(
+                        'INVENTRA',
+                        style: AppTextStyles.headlineLg.copyWith(
+                          color: AppColors.textPrimaryDark,
+                          letterSpacing: 5,
+                          fontSize: 24,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Control Inteligente de Herramientas',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondaryDark,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 40),
+                      _buildLoginForm(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  // ── LOGO WIDGET ───────────────────────────────────────────────────────────
+  Widget _buildLogoWidget({required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppColors.bgDarkSecondary,
+        borderRadius: BorderRadius.circular(size * 0.22),
+        border: Border.all(
+          color: AppColors.accentTeal.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentTeal.withValues(alpha: 0.12),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.22 - 1),
+        child: Image.asset(
+          'assets/images/inventra_logo.png',
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  // ── FEATURE PILL ──────────────────────────────────────────────────────────
+  Widget _buildFeaturePill(IconData icon, String title, String subtitle) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.accentTealDim,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.accentTeal.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Icon(icon, color: AppColors.accentTeal, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTextStyles.headlineSm.copyWith(
+                  color: AppColors.textPrimaryDark,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.textSecondaryDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── LOGIN FORM ────────────────────────────────────────────────────────────
+  Widget _buildLoginForm() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(32.0),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.bgDarkSecondary : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.bgDarkBorder, width: 1.0),
+      ),
+      child: _isLoading && _emailController.text.isEmpty
+          ? _buildRestoringSession()
+          : Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header del form
+                  Text(
+                    'Iniciar Sesión',
+                    style: AppTextStyles.headlineLg.copyWith(
+                      color: AppColors.textPrimaryDark,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ingresa tus credenciales para acceder',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.textSecondaryDark,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Email field
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.textPrimaryDark,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Correo electrónico',
+                      prefixIcon: const Icon(
+                        Icons.alternate_email_rounded,
+                        size: 20,
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Ingresa tu correo';
+                      }
+                      if (!RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(v)) {
+                        return 'Correo inválido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Password field
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _handleLogin(),
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.textPrimaryDark,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 20,
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20,
+                        ),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Remember me con Switch moderno
+                  Row(
+                    children: [
+                      SizedBox(
+                        height: 28,
+                        width: 48,
+                        child: Switch(
+                          value: _rememberMe,
+                          onChanged: (v) => setState(() => _rememberMe = v),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _rememberMe = !_rememberMe),
+                        child: Text(
+                          'Recordar sesión',
+                          style: AppTextStyles.labelMd.copyWith(
+                            color: AppColors.textSecondaryDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Botón de login
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF001F1A),
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              'Ingresar',
+                              style: AppTextStyles.buttonLg.copyWith(
+                                color: const Color(0xFF001F1A),
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Developed by Key Solutions Technology
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          'assets/images/key_solutions_logo.png',
+                          width: 18,
+                          height: 18,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Desarrollado por Key Solutions Technology',
+                        style: AppTextStyles.caption.copyWith(
+                          color: isDark
+                              ? AppColors.textSecondaryDark.withValues(alpha: 0.6)
+                              : AppColors.textSecondaryLight.withValues(alpha: 0.6),
+                          fontSize: 10.5,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildRestoringSession() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 36,
+          height: 36,
+          child: CircularProgressIndicator(
+            color: AppColors.accentTeal,
+            strokeWidth: 2.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Restaurando sesión...',
+          style: AppTextStyles.bodyMd.copyWith(
+            color: AppColors.textSecondaryDark,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dot Grid Painter ─────────────────────────────────────────────────────────
+class _SubtleDotGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.accentTeal.withValues(alpha: 0.035)
+      ..style = PaintingStyle.fill;
+    const spacing = 32.0;
+    const dotRadius = 1.2;
+    for (double x = spacing; x < size.width; x += spacing) {
+      for (double y = spacing; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SubtleDotGridPainter old) => false;
 }

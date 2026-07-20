@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import 'registrar_movimiento_screen.dart';
 
 class DeudoresListScreen extends StatefulWidget {
@@ -86,84 +89,68 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
     });
   }
 
-  String _formatFecha(String dateStr) {
-    try {
-      final dt = DateTime.parse(dateStr).toLocal();
-      final monthNames = [
-        'Ene',
-        'Feb',
-        'Mar',
-        'Abr',
-        'May',
-        'Jun',
-        'Jul',
-        'Ago',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dic',
-      ];
-      final day = dt.day.toString().padLeft(2, '0');
-      final month = monthNames[dt.month - 1];
-      final year = dt.year;
-      final hour = dt.hour.toString().padLeft(2, '0');
-      final min = dt.minute.toString().padLeft(2, '0');
-      return '$day/$month/$year $hour:$min';
-    } catch (e) {
-      return dateStr.split('.')[0];
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
+      backgroundColor: AppColors.bgDark,
       appBar: AppBar(
-        title: const Text('Préstamos Activos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _fetchLoans,
-          ),
-        ],
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/inventra_logo.png',
+              width: 24,
+              height: 24,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Préstamos Activos',
+              style: AppTextStyles.headlineMd.copyWith(
+                color: AppColors.textPrimaryDark,
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
-          // Barra de Búsqueda Premium
+          // Barra de búsqueda
           Center(
-            child: Container(
+            child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _filterLoans,
-                decoration: InputDecoration(
-                  hintText:
-                      'Buscar por responsable, matrícula, folio o herramienta...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            _searchController.clear();
-                            _filterLoans('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF1E293B)
-                      : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _filterLoans,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    TextInputFormatter.withFunction((oldValue, newValue) {
+                      return newValue.copyWith(
+                        text: newValue.text.toUpperCase(),
+                      );
+                    }),
+                  ],
+                  style: AppTextStyles.bodyMd
+                      .copyWith(color: AppColors.textPrimaryDark),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar responsable, matrícula, herramienta...',
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              _filterLoans('');
+                            },
+                          )
+                        : null,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
               ),
             ),
@@ -171,53 +158,22 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
 
           Expanded(
             child: RefreshIndicator(
+              color: AppColors.accentTeal,
+              backgroundColor: AppColors.bgDarkSecondary,
               onRefresh: _fetchLoans,
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          color: AppColors.accentTeal,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                    )
                   : _filteredLoans.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.6,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _searchQuery.isNotEmpty
-                                          ? Icons.search_off_rounded
-                                          : Icons.check_circle_outline_rounded,
-                                      size: 72,
-                                      color: colors.primary.withValues(alpha: 0.4),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _searchQuery.isNotEmpty
-                                          ? 'No se encontraron deudores que coincidan'
-                                          : '¡Sin adeudos pendientes!',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _searchQuery.isNotEmpty
-                                          ? 'Prueba modificando los términos de búsqueda.'
-                                          : 'Todos los préstamos han sido devueltos a tiempo.',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade500,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
+                      ? _buildEmptyState()
                       : LayoutBuilder(
                           builder: (context, constraints) {
                             if (constraints.maxWidth > 650) {
@@ -225,29 +181,31 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.all(16),
                                 itemCount: _filteredLoans.length,
-                                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 460,
-                                  mainAxisSpacing: 16,
-                                  crossAxisSpacing: 16,
-                                  childAspectRatio: 1.9,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final loan = _filteredLoans[index];
-                                  return _buildDeudorCard(loan, colors, isDark);
-                                },
+                                gridDelegate:
+                                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 460,
+                                      mainAxisSpacing: 12,
+                                      crossAxisSpacing: 12,
+                                      childAspectRatio: 1.6,
+                                    ),
+                                itemBuilder: (_, index) =>
+                                    _buildDeudorCard(_filteredLoans[index]),
                               );
                             } else {
                               return Center(
-                                child: Container(
-                                  constraints: const BoxConstraints(maxWidth: 800),
-                                  child: ListView.builder(
-                                    physics: const AlwaysScrollableScrollPhysics(),
-                                    padding: const EdgeInsets.all(16),
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 800),
+                                  child: ListView.separated(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 8, 16, 32),
                                     itemCount: _filteredLoans.length,
-                                    itemBuilder: (context, index) {
-                                      final loan = _filteredLoans[index];
-                                      return _buildDeudorItem(loan, colors, isDark);
-                                    },
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 10),
+                                    itemBuilder: (_, index) =>
+                                        _buildDeudorCard(_filteredLoans[index]),
                                   ),
                                 ),
                               );
@@ -261,7 +219,68 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
     );
   }
 
-  Widget _buildDeudorCard(Map<String, dynamic> loan, ColorScheme colors, bool isDark) {
+  Widget _buildEmptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: _searchQuery.isNotEmpty
+                        ? AppColors.bgDarkSecondary
+                        : AppColors.accentTealDim,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _searchQuery.isNotEmpty
+                          ? AppColors.bgDarkBorder
+                          : AppColors.accentTeal.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Icon(
+                    _searchQuery.isNotEmpty
+                        ? Icons.search_off_rounded
+                        : Icons.check_circle_outline_rounded,
+                    size: 32,
+                    color: _searchQuery.isNotEmpty
+                        ? AppColors.textMutedDark
+                        : AppColors.accentTeal,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  _searchQuery.isNotEmpty
+                      ? 'Sin resultados'
+                      : '¡Sin préstamos pendientes!',
+                  style: AppTextStyles.headlineSm.copyWith(
+                    color: AppColors.textSecondaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _searchQuery.isNotEmpty
+                      ? 'Intenta otros términos de búsqueda.'
+                      : 'Todos los préstamos han sido devueltos.',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.textMutedDark,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeudorCard(Map<String, dynamic> loan) {
     final tool = loan['herramientas'] ?? {};
     final folio = loan['folio'] ?? 0;
     final cantTotal = loan['cantidad'] as int? ?? 0;
@@ -270,231 +289,256 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
     final estado = loan['estado'] ?? 'ACTIVO';
     final fechaStr = loan['fecha_prestamo'] ?? '';
     final responsable = loan['responsable_nombre'] ?? 'Sin nombre';
-    final matricula = loan['matricula'] ?? 'Sin matrícula';
+    final matricula = loan['matricula'] ?? '';
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: colors.outline.withValues(alpha: 0.15),
-          width: 1,
+    // Calcular días transcurridos
+    int diasTranscurridos = 0;
+    if (fechaStr.isNotEmpty) {
+      try {
+        final fechaDt = DateTime.parse(fechaStr).toLocal();
+        diasTranscurridos = DateTime.now().difference(fechaDt).inDays;
+      } catch (_) {}
+    }
+
+    final bool isUrgente = diasTranscurridos >= 3;
+    final Color urgenciaColor =
+        isUrgente ? AppColors.accentRed : AppColors.accentAmber;
+
+    // Initial del responsable
+    final String initial = responsable.isNotEmpty
+        ? responsable[0].toUpperCase()
+        : '?';
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.bgDarkSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isUrgente
+                ? AppColors.accentRed.withValues(alpha: 0.25)
+                : AppColors.bgDarkBorder,
+            width: 1,
+          ),
         ),
-      ),
-      color: isDark ? const Color(0xFF1E293B) : Colors.white,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header: folio + estado badge
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'VALE-${folio.toString().padLeft(6, '0')}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: colors.primary,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textMutedDark,
+                    fontFamily: 'Inter',
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: estado == 'PARCIAL'
-                        ? Colors.blue.withValues(alpha: 0.1)
-                        : Colors.amber.withValues(
-                            alpha: 0.1,
+                Row(
+                  children: [
+                    if (diasTranscurridos > 0)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: urgenciaColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: urgenciaColor.withValues(alpha: 0.3),
+                            width: 0.5,
                           ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    estado,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: estado == 'PARCIAL'
-                          ? Colors.blue.shade700
-                          : Colors.amber.shade800,
+                        ),
+                        child: Text(
+                          '${diasTranscurridos}d',
+                          style: AppTextStyles.overline.copyWith(
+                            color: urgenciaColor,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: estado == 'PARCIAL'
+                            ? const Color(0xFF0D2A3D)
+                            : AppColors.accentAmberDim,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        estado,
+                        style: AppTextStyles.overline.copyWith(
+                          color: estado == 'PARCIAL'
+                              ? const Color(0xFF40C4FF)
+                              : AppColors.accentAmber,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+
+            // Body: avatar + info + foto herramienta
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: tool['foto_url'] != null
-                      ? CachedNetworkImage(
-                          imageUrl: tool['foto_url'],
-                          width: 55,
-                          height: 55,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            width: 55,
-                            height: 55,
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
-                            width: 55,
-                            height: 55,
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Colors.grey,
-                              size: 20,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          width: 55,
-                          height: 55,
-                          color: Colors.grey.shade200,
-                          child: const Icon(
-                            Icons.handyman_rounded,
-                            color: Colors.grey,
-                            size: 20,
-                          ),
-                        ),
+                // Avatar
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentTealDim,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: AppColors.accentTeal.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initial,
+                    style: AppTextStyles.headlineMd.copyWith(
+                      color: AppColors.accentTeal,
+                      fontFamily: 'DMSans',
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
+
+                // Info responsable + herramienta
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         responsable,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                        style: AppTextStyles.headlineSm.copyWith(
+                          color: AppColors.textPrimaryDark,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Matrícula: $matricula',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
+                      if (matricula.isNotEmpty)
+                        Text(
+                          matricula,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondaryDark,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
-                        'Herramienta: ${tool['nombre'] ?? 'Desconocido'}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
+                        tool['nombre'] ?? 'Sin herramienta',
+                        style: AppTextStyles.bodyMd.copyWith(
+                          color: AppColors.textSecondaryDark,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Pendiente: $pending ${tool['unidades_medida']?['abreviatura'] ?? 'Pza'} (de $cantTotal total)',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
+
+                // Foto de herramienta
+                if (tool['foto_url'] != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: CachedNetworkImage(
+                      imageUrl: tool['foto_url'],
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        width: 48,
+                        height: 48,
+                        color: AppColors.bgDarkTertiary,
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        width: 48,
+                        height: 48,
+                        color: AppColors.bgDarkTertiary,
+                        child: const Icon(
+                          Icons.handyman_rounded,
+                          color: AppColors.textMutedDark,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
+
+            // Footer: pendiente + fecha + botón devolver
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bgDarkTertiary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'FECHA DE PRÉSTAMO',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                      Text(
+                        'PENDIENTE',
+                        style: AppTextStyles.overline.copyWith(
+                          color: AppColors.textMutedDark,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatFecha(fechaStr),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                        '$pending de $cantTotal ${tool['unidades_medida']?['abreviatura'] ?? 'Pza'}',
+                        style: AppTextStyles.dataMd.copyWith(
+                          color: urgenciaColor,
                         ),
                       ),
                     ],
                   ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RegistrarMovimientoScreen(
-                          herramienta: tool,
-                          tipoInicial: 'ENTRADA',
-                          prestamoInicial: loan,
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RegistrarMovimientoScreen(
+                            herramienta: tool,
+                            tipoInicial: 'ENTRADA',
+                            prestamoInicial: loan,
+                          ),
                         ),
+                      ).then((result) {
+                        if (result == true) _fetchLoans();
+                      });
+                    },
+                    icon: const Icon(Icons.assignment_turned_in_rounded,
+                        size: 16),
+                    label: const Text('Devolver'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentTeal,
+                      foregroundColor: const Color(0xFF001F1A),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      textStyle: AppTextStyles.labelMd,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ).then((result) {
-                      if (result == true) {
-                        _fetchLoans();
-                      }
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        10,
-                      ),
-                    ),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(
-                    Icons.assignment_turned_in_rounded,
-                    size: 16,
-                  ),
-                  label: const Text(
-                    'Devolver',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      elevation: 0,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDeudorItem(Map<String, dynamic> loan, ColorScheme colors, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: _buildDeudorCard(loan, colors, isDark),
     );
   }
 }

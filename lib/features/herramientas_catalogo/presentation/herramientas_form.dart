@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../data/herramientas_repository.dart';
@@ -274,8 +274,16 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      TextFormField(
+                       TextFormField(
                         controller: _nombreController,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'Nombre de la Herramienta',
                         ),
@@ -285,6 +293,14 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _descController,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'Descripción',
                         ),
@@ -296,6 +312,14 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _marcaController,
+                              textCapitalization: TextCapitalization.characters,
+                              inputFormatters: [
+                                TextInputFormatter.withFunction((oldValue, newValue) {
+                                  return newValue.copyWith(
+                                    text: newValue.text.toUpperCase(),
+                                  );
+                                }),
+                              ],
                               decoration: const InputDecoration(
                                 labelText: 'Marca',
                               ),
@@ -305,6 +329,14 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _modeloController,
+                              textCapitalization: TextCapitalization.characters,
+                              inputFormatters: [
+                                TextInputFormatter.withFunction((oldValue, newValue) {
+                                  return newValue.copyWith(
+                                    text: newValue.text.toUpperCase(),
+                                  );
+                                }),
+                              ],
                               decoration: const InputDecoration(
                                 labelText: 'Modelo',
                               ),
@@ -315,6 +347,14 @@ class _HerramientasFormScreenState extends State<HerramientasFormScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _nSerieController,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'Número de Serie',
                         ),
