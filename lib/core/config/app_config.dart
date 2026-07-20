@@ -1,4 +1,7 @@
 class AppConfig {
+  // ─── Versión y Despliegue ──────────────────────────────────────────────────
+  static const String appVersion = '1.0.0+2';
+
   // ─── Supabase ───────────────────────────────────────────────────────────────
   static const String supabaseUrl = 'https://nnwtkhncjlalwzywgida.supabase.co';
   static const String supabaseAnonKey =
