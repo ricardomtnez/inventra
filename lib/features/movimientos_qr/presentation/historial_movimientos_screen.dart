@@ -27,13 +27,85 @@ class _HistorialMovimientosScreenState
     extends State<HistorialMovimientosScreen> {
   final _repository = HerramientasRepository();
   final _authRepository = AuthRepository();
+  final _searchController = TextEditingController();
+
   List<Map<String, dynamic>> _movimientos = [];
   bool _isLoading = true;
+
+  String _searchQuery = '';
+  String _timeFilter = 'semana'; // 'semana' (default), 'hoy', 'mes', 'todos'
+  String _typeFilter = 'todos'; // 'todos', 'entrada', 'salida', 'devuelto'
 
   @override
   void initState() {
     super.initState();
     _cargarHistorial();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _movimientosFiltrados {
+    final now = DateTime.now();
+
+    DateTime? inicioFiltro;
+    if (_timeFilter == 'hoy') {
+      inicioFiltro = DateTime(now.year, now.month, now.day);
+    } else if (_timeFilter == 'semana') {
+      final weekday = now.weekday; // 1 = Lunes, 7 = Domingo
+      final lunes = now.subtract(Duration(days: weekday - 1));
+      inicioFiltro = DateTime(lunes.year, lunes.month, lunes.day);
+    } else if (_timeFilter == 'mes') {
+      inicioFiltro = DateTime(now.year, now.month, 1);
+    }
+
+    return _movimientos.where((m) {
+      // 1. Filtro por Fecha
+      if (inicioFiltro != null) {
+        final fechaStr = m['fecha'] as String?;
+        if (fechaStr != null) {
+          final dt = DateTime.tryParse(fechaStr)?.toLocal();
+          if (dt != null && dt.isBefore(inicioFiltro)) {
+            return false;
+          }
+        }
+      }
+
+      // 2. Filtro por Tipo / Estado
+      final tipo = m['tipo'] as String? ?? '';
+      final isDevuelto =
+          m['prestamos'] != null && m['prestamos']['estado'] == 'DEVUELTO';
+
+      if (_typeFilter == 'entrada' && tipo != 'ENTRADA') return false;
+      if (_typeFilter == 'salida' && tipo != 'SALIDA') return false;
+      if (_typeFilter == 'devuelto' && !isDevuelto) return false;
+
+      // 3. Filtro por Búsqueda
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase().trim();
+        final folio = (m['folio'] ?? 0).toString();
+        final folioStr = tipo == 'ENTRADA' ? 'e-$folio' : 'vale-$folio';
+        final toolName =
+            (m['herramientas']?['nombre'] as String? ?? '').toLowerCase();
+        final responsable =
+            (m['responsable_nombre'] as String? ?? '').toLowerCase();
+        final matricula = (m['matricula'] as String? ?? '').toLowerCase();
+        final motivo = (m['motivo'] as String? ?? '').toLowerCase();
+
+        final match = folioStr.contains(query) ||
+            toolName.contains(query) ||
+            responsable.contains(query) ||
+            matricula.contains(query) ||
+            motivo.contains(query);
+
+        if (!match) return false;
+      }
+
+      return true;
+    }).toList();
   }
 
   Future<void> _cargarHistorial() async {
@@ -854,8 +926,146 @@ class _HistorialMovimientosScreenState
     );
   }
 
+  Widget _buildFilterHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: AppColors.bgDarkSecondary,
+        border: Border(
+          bottom: BorderSide(color: AppColors.bgDarkBorder, width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Barra de Búsqueda
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.bgDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.bgDarkBorder, width: 1),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.textPrimaryDark),
+              decoration: InputDecoration(
+                hintText: 'Buscar por herramienta, responsable o folio...',
+                hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textMutedDark),
+                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textMutedDark),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textMutedDark),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Chips de Filtro por Fecha y Tipo
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Text(
+                  'Fecha:',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textMutedDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('Esta Semana', 'semana'),
+                const SizedBox(width: 6),
+                _buildTimeFilterChip('Hoy', 'hoy'),
+                const SizedBox(width: 6),
+                _buildTimeFilterChip('Este Mes', 'mes'),
+                const SizedBox(width: 6),
+                _buildTimeFilterChip('Todos', 'todos'),
+
+                const SizedBox(width: 16),
+                Container(width: 1, height: 16, color: AppColors.bgDarkBorder),
+                const SizedBox(width: 16),
+
+                Text(
+                  'Tipo:',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textMutedDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildTypeFilterChip('Todos', 'todos'),
+                const SizedBox(width: 6),
+                _buildTypeFilterChip('Entradas (+)', 'entrada'),
+                const SizedBox(width: 6),
+                _buildTypeFilterChip('Salidas (−)', 'salida'),
+                const SizedBox(width: 6),
+                _buildTypeFilterChip('Devueltos', 'devuelto'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeFilterChip(String label, String value) {
+    final isSelected = _timeFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _timeFilter = value),
+      selectedColor: AppColors.accentTealDim,
+      backgroundColor: AppColors.bgDark,
+      labelStyle: TextStyle(
+        color: isSelected ? AppColors.accentTeal : AppColors.textSecondaryDark,
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide(
+        color: isSelected ? AppColors.accentTeal.withValues(alpha: 0.4) : AppColors.bgDarkBorder,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildTypeFilterChip(String label, String value) {
+    final isSelected = _typeFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _typeFilter = value),
+      selectedColor: AppColors.accentTealDim,
+      backgroundColor: AppColors.bgDark,
+      labelStyle: TextStyle(
+        color: isSelected ? AppColors.accentTeal : AppColors.textSecondaryDark,
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide(
+        color: isSelected ? AppColors.accentTeal.withValues(alpha: 0.4) : AppColors.bgDarkBorder,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final list = _movimientosFiltrados;
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       appBar: AppBar(
@@ -879,6 +1089,7 @@ class _HistorialMovimientosScreenState
       body: Column(
         children: [
           const OfflineBanner(),
+          _buildFilterHeader(),
           Expanded(
             child: _isLoading && _movimientos.isEmpty
                 ? const Center(
@@ -895,37 +1106,32 @@ class _HistorialMovimientosScreenState
                     color: AppColors.accentTeal,
                     backgroundColor: AppColors.bgDarkSecondary,
                     onRefresh: _cargarHistorial,
-                    child: _movimientos.isEmpty
+                    child: list.isEmpty
                         ? _buildEmptyState()
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               if (constraints.maxWidth > 650) {
                                 return GridView.builder(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: _movimientos.length,
+                                  padding: const EdgeInsets.all(20),
+                                  itemCount: list.length,
                                   gridDelegate:
                                       const SliverGridDelegateWithMaxCrossAxisExtent(
-                                        maxCrossAxisExtent: 460,
-                                        mainAxisSpacing: 12,
-                                        crossAxisSpacing: 12,
-                                        childAspectRatio: 3.2,
-                                      ),
+                                    maxCrossAxisExtent: 480,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 3.2,
+                                  ),
                                   itemBuilder: (context, index) =>
-                                      _buildMovimientoItem(_movimientos[index]),
+                                      _buildMovimientoItem(list[index]),
                                 );
                               } else {
-                                return Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 800),
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                                      itemCount: _movimientos.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 10),
-                                      itemBuilder: (_, index) =>
-                                          _buildMovimientoItem(_movimientos[index]),
-                                    ),
-                                  ),
+                                return ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                                  itemCount: list.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (_, index) =>
+                                      _buildMovimientoItem(list[index]),
                                 );
                               }
                             },

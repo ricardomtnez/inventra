@@ -924,26 +924,22 @@ class _ToolDetailModalState extends State<_ToolDetailModal> {
     final h = widget.herramienta;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final especificaciones = h['especificaciones'] as Map<String, dynamic>? ?? {};
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (ScrollNotification notification) {
-        return true; // Detiene la propagación de eventos de scroll
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0A0D14) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A0D14) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1.0,
         ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: SingleChildScrollView(
-          controller: ScrollController(),
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          child: Column(
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1248,9 +1244,8 @@ class _ToolDetailModalState extends State<_ToolDetailModal> {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildSpecRow(String label, String value) {
     return Padding(

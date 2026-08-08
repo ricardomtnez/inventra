@@ -377,36 +377,43 @@ class _HomeTabState extends State<_HomeTab>
       // Herramientas activas + stock + valor
       final toolsRes = await client
           .from('herramientas')
-          .select('stock, precio_unitario')
-          .eq('activo', true);
+          .select('stock, costo_promedio, activo');
 
-      int totalHerramientas = toolsRes.length;
+      int totalHerramientas = 0;
       int stockTotal = 0;
       double valorTotal = 0.0;
       for (var r in toolsRes) {
+        final isActivo = r['activo'] as bool? ?? true;
+        if (!isActivo) continue;
+        totalHerramientas++;
         final stock = r['stock'] as int? ?? 0;
         stockTotal += stock;
-        valorTotal += stock * ((r['precio_unitario'] as num?)?.toDouble() ?? 0.0);
+        valorTotal += stock * ((r['costo_promedio'] as num?)?.toDouble() ?? 0.0);
       }
 
       // Préstamos activos (pendientes)
-      final prestamosRes = await client
-          .from('prestamos')
-          .select('cantidad, cantidad_devuelta')
-          .neq('estado', 'DEVUELTO');
-
       int prestadas = 0;
-      for (var p in prestamosRes) {
-        final cant = p['cantidad'] as int? ?? 0;
-        final dev = p['cantidad_devuelta'] as int? ?? 0;
-        prestadas += (cant - dev);
+      try {
+        final prestamosRes = await client
+            .from('prestamos')
+            .select('cantidad, cantidad_devuelta, estado');
+
+        for (var p in prestamosRes) {
+          final estado = p['estado'] as String? ?? 'ACTIVO';
+          if (estado == 'DEVUELTO') continue;
+          final cant = p['cantidad'] as int? ?? 0;
+          final dev = p['cantidad_devuelta'] as int? ?? 0;
+          prestadas += (cant - dev);
+        }
+      } catch (e) {
+        debugPrint('Error prestamos count: $e');
       }
 
       // Herramientas con stock bajo (stock <= 2, umbral configurable)
       final alertasRes = await client
           .from('herramientas')
-          .select('nombre, stock, codigo_qr')
-          .eq('activo', true)
+          .select('nombre, stock, foto_url')
+          .or('activo.is.null,activo.eq.true')
           .lte('stock', 2)
           .order('stock', ascending: true)
           .limit(5);
@@ -414,29 +421,42 @@ class _HomeTabState extends State<_HomeTab>
       // Bajas del mes actual
       final now = DateTime.now();
       final inicioMes = DateTime(now.year, now.month, 1).toIso8601String();
-      final bajasRes = await client
-          .from('movimientos_inventario')
-          .select('id')
-          .eq('tipo', 'BAJA')
-          .gte('fecha', inicioMes);
+      int bajasContador = 0;
+      try {
+        final bajasRes = await client
+            .from('movimientos')
+            .select('id')
+            .eq('tipo', 'SALIDA')
+            .or('motivo.eq.BAJA_DESCOMPOSTURA,motivo.eq.BAJA_PERDIDA')
+            .gte('fecha', inicioMes);
+        bajasContador = bajasRes.length;
+      } catch (e) {
+        debugPrint('Error bajas count: $e');
+      }
 
       // Últimos 5 movimientos
-      final movRes = await client
-          .from('movimientos_inventario')
-          .select('tipo, fecha, herramientas(nombre), responsable_nombre, cantidad')
-          .order('fecha', ascending: false)
-          .limit(5);
+      List<Map<String, dynamic>> ultimosMovs = [];
+      try {
+        final movRes = await client
+            .from('movimientos')
+            .select('tipo, fecha, herramientas(nombre), responsable_nombre, cantidad')
+            .order('fecha', ascending: false)
+            .limit(5);
+        ultimosMovs = List<Map<String, dynamic>>.from(movRes);
+      } catch (e) {
+        debugPrint('Error ultimos movs: $e');
+      }
 
       if (mounted) {
         setState(() {
           _totalHerramientas = totalHerramientas;
           _stockTotal = stockTotal;
           _prestamosActivos = prestadas < 0 ? 0 : prestadas;
-          _herramientasDisponibles = stockTotal - prestadas;
-          _bajasMes = bajasRes.length;
+          _herramientasDisponibles = (stockTotal - prestadas) < 0 ? 0 : (stockTotal - prestadas);
+          _bajasMes = bajasContador;
           _valorInventario = valorTotal;
           _alertasStock = List<Map<String, dynamic>>.from(alertasRes);
-          _ultimosMovimientos = List<Map<String, dynamic>>.from(movRes);
+          _ultimosMovimientos = ultimosMovs;
         });
       }
     } catch (e) {
@@ -529,19 +549,16 @@ class _HomeTabState extends State<_HomeTab>
         color: AppColors.accentTeal,
         backgroundColor: AppColors.bgDarkSecondary,
         onRefresh: _cargarTodo,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 24),
 
-                // ── KPI Grid principal ─────────────────────────────────
-                _buildKPIGrid(),
-                const SizedBox(height: 28),
+            // ── KPI Grid principal ─────────────────────────────────
+            _buildKPIGrid(),
+            const SizedBox(height: 28),
 
                 // ── Alertas de stock bajo ──────────────────────────────
                 if (_alertasStock.isNotEmpty) ...[
@@ -568,8 +585,6 @@ class _HomeTabState extends State<_HomeTab>
                 ],
               ],
             ),
-          ),
-        ),
       ),
     );
   }
@@ -828,14 +843,15 @@ class _HomeTabState extends State<_HomeTab>
     ];
 
     return LayoutBuilder(builder: (ctx, c) {
-      final cols = c.maxWidth > 500 ? 3 : 2;
+      final cols = c.maxWidth > 900 ? 6 : (c.maxWidth > 550 ? 3 : 2);
+      final ratio = cols >= 6 ? 1.4 : (cols == 3 ? 1.25 : 1.1);
       return GridView.count(
         crossAxisCount: cols,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: cols == 3 ? 1.05 : 1.1,
+        childAspectRatio: ratio,
         children: kpis.map((k) => _buildKPICard(k)).toList(),
       );
     });
