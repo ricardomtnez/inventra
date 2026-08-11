@@ -327,6 +327,7 @@ class _HomeTabState extends State<_HomeTab>
   List<Map<String, dynamic>> _ultimosMovimientos = [];
   List<Map<String, dynamic>> _alertasStock = [];
 
+  RealtimeChannel? _realtimeChannel;
   late final AnimationController _enterController;
 
   @override
@@ -337,16 +338,45 @@ class _HomeTabState extends State<_HomeTab>
       duration: const Duration(milliseconds: 700),
     )..forward();
     _cargarTodo();
+    _suscribirRealtime();
+  }
+
+  void _suscribirRealtime() {
+    try {
+      _realtimeChannel = SupabaseClientHelper.client
+          .channel('public:kpi_updates')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'movimientos',
+            callback: (payload) => _cargarTodo(),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'prestamos',
+            callback: (payload) => _cargarTodo(),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'herramientas',
+            callback: (payload) => _cargarTodo(),
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Error registrando suscripción Realtime: $e');
+    }
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _enterController.dispose();
     super.dispose();
   }
 
   Future<void> _cargarTodo() async {
-    setState(() => _isLoading = true);
     await Future.wait([
       _cargarPerfil(),
       _cargarKPIs(),
@@ -374,24 +404,24 @@ class _HomeTabState extends State<_HomeTab>
     try {
       final client = SupabaseClientHelper.client;
 
-      // Herramientas activas + stock + valor
+      // Herramientas activas + stock disponible en almacén + valor
       final toolsRes = await client
           .from('herramientas')
           .select('stock, costo_promedio, activo');
 
       int totalHerramientas = 0;
-      int stockTotal = 0;
+      int stockDisponiblesEnAlmacen = 0;
       double valorTotal = 0.0;
       for (var r in toolsRes) {
         final isActivo = r['activo'] as bool? ?? true;
         if (!isActivo) continue;
         totalHerramientas++;
         final stock = r['stock'] as int? ?? 0;
-        stockTotal += stock;
+        stockDisponiblesEnAlmacen += stock;
         valorTotal += stock * ((r['costo_promedio'] as num?)?.toDouble() ?? 0.0);
       }
 
-      // Préstamos activos (pendientes)
+      // Préstamos activos (pendientes en campo)
       int prestadas = 0;
       try {
         final prestamosRes = await client
@@ -418,18 +448,20 @@ class _HomeTabState extends State<_HomeTab>
           .order('stock', ascending: true)
           .limit(5);
 
-      // Bajas del mes actual
+      // Bajas del mes actual (suma de cantidad física dada de baja)
       final now = DateTime.now();
       final inicioMes = DateTime(now.year, now.month, 1).toIso8601String();
       int bajasContador = 0;
       try {
         final bajasRes = await client
             .from('movimientos')
-            .select('id')
+            .select('cantidad')
             .eq('tipo', 'SALIDA')
             .or('motivo.eq.BAJA_DESCOMPOSTURA,motivo.eq.BAJA_PERDIDA')
             .gte('fecha', inicioMes);
-        bajasContador = bajasRes.length;
+        for (var b in bajasRes) {
+          bajasContador += (b['cantidad'] as int? ?? 0);
+        }
       } catch (e) {
         debugPrint('Error bajas count: $e');
       }
@@ -450,9 +482,9 @@ class _HomeTabState extends State<_HomeTab>
       if (mounted) {
         setState(() {
           _totalHerramientas = totalHerramientas;
-          _stockTotal = stockTotal;
+          _herramientasDisponibles = stockDisponiblesEnAlmacen;
           _prestamosActivos = prestadas < 0 ? 0 : prestadas;
-          _herramientasDisponibles = (stockTotal - prestadas) < 0 ? 0 : (stockTotal - prestadas);
+          _stockTotal = stockDisponiblesEnAlmacen + _prestamosActivos;
           _bajasMes = bajasContador;
           _valorInventario = valorTotal;
           _alertasStock = List<Map<String, dynamic>>.from(alertasRes);

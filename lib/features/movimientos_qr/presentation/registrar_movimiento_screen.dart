@@ -674,9 +674,10 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
               final String? pId = loan != null ? loan['id'] : _prestamoId;
               
               if (pId != null) {
-                final dbLoan = await client.from('prestamos').select('cantidad, cantidad_devuelta').eq('id', pId).single();
+                final dbLoan = await client.from('prestamos').select('cantidad, cantidad_devuelta, grupo_id').eq('id', pId).single();
                 final int cantTotal = dbLoan['cantidad'] as int;
                 final int cantDevueltaAnterior = dbLoan['cantidad_devuelta'] as int;
+                final String? loanGrupoId = dbLoan['grupo_id'] as String?;
                 final int nuevaCantDevuelta = cantDevueltaAnterior + qty;
                 final int capDevuelta = nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta;
                 
@@ -691,12 +692,25 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                   'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
                 }).eq('id', pId);
 
-                // Eliminar la INE del Storage para este préstamo SI ya se devolvió por completo
+                // Eliminar la INE del Storage SOLO SI todas las herramientas del grupo han sido devueltas
                 if (nuevoEstado == 'DEVUELTO') {
-                  try {
-                    await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$pId.jpg']);
-                  } catch (e) {
-                    debugPrint('Error al eliminar INE del Storage para préstamo $pId: $e');
+                  bool canDeleteIne = true;
+                  if (loanGrupoId != null && loanGrupoId.isNotEmpty) {
+                    final remainingGroupLoans = await client
+                        .from('prestamos')
+                        .select('id')
+                        .eq('grupo_id', loanGrupoId)
+                        .neq('estado', 'DEVUELTO');
+                    if (remainingGroupLoans.isNotEmpty) {
+                      canDeleteIne = false;
+                    }
+                  }
+                  if (canDeleteIne) {
+                    try {
+                      await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$pId.jpg']);
+                    } catch (e) {
+                      debugPrint('Error al eliminar INE del Storage para préstamo $pId: $e');
+                    }
                   }
                 }
 
@@ -724,7 +738,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                 // Si no hay préstamo previo pre-vinculado, buscamos préstamos activos más antiguos para la herramienta y matrícula
                 final activeLoans = await client
                     .from('prestamos')
-                    .select('id, cantidad, cantidad_devuelta')
+                    .select('id, cantidad, cantidad_devuelta, grupo_id')
                     .eq('herramienta_id', tool['id'])
                     .eq('matricula', matricula)
                     .neq('estado', 'DEVUELTO')
@@ -737,6 +751,7 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                     if (remainingToDevolver <= 0) break;
                     
                     final String loanId = dbL['id'];
+                    final String? loanGrupoId = dbL['grupo_id'] as String?;
                     final int cantTotal = dbL['cantidad'] as int;
                     final int cantDevueltaAnterior = dbL['cantidad_devuelta'] as int;
                     final int pending = cantTotal - cantDevueltaAnterior;
@@ -759,10 +774,23 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
                     }).eq('id', loanId);
                     
                     if (nuevoEstado == 'DEVUELTO') {
-                      try {
-                        await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$loanId.jpg']);
-                      } catch (e) {
-                        debugPrint('Error al eliminar INE del Storage para préstamo $loanId: $e');
+                      bool canDeleteIne = true;
+                      if (loanGrupoId != null && loanGrupoId.isNotEmpty) {
+                        final remainingGroupLoans = await client
+                            .from('prestamos')
+                            .select('id')
+                            .eq('grupo_id', loanGrupoId)
+                            .neq('estado', 'DEVUELTO');
+                        if (remainingGroupLoans.isNotEmpty) {
+                          canDeleteIne = false;
+                        }
+                      }
+                      if (canDeleteIne) {
+                        try {
+                          await client.storage.from('fotos_herramientas').remove(['identificaciones/ine_$loanId.jpg']);
+                        } catch (e) {
+                          debugPrint('Error al eliminar INE del Storage para préstamo $loanId: $e');
+                        }
                       }
                     }
                     
@@ -1035,8 +1063,12 @@ class _RegistrarMovimientoScreenState extends State<RegistrarMovimientoScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('grupo_id') || errorMsg.contains('PGRST204')) {
+          errorMsg = 'No se encontró la columna "grupo_id" en Supabase. Por favor, ejecute la migración SQL 20260811_fix_grupo_id_and_policies.sql en el SQL Editor de Supabase.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al registrar: ${e.toString()}'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('Error al registrar: $errorMsg'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {

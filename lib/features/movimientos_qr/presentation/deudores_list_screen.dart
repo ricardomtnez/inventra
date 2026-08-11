@@ -504,7 +504,40 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
                     ],
                   ),
                   ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
+                      final String? grupoId = loan['grupo_id'] as String?;
+                      if (grupoId != null && grupoId.isNotEmpty) {
+                        try {
+                          final client = SupabaseClientHelper.client;
+                          final loansInGroup = await client
+                              .from('prestamos')
+                              .select('*, herramientas(*, ubicaciones(nombre), unidades_medida(abreviatura, nombre))')
+                              .eq('grupo_id', grupoId)
+                              .neq('estado', 'DEVUELTO')
+                              .order('fecha_prestamo', ascending: true);
+
+                          if (loansInGroup.length > 1) {
+                            if (!mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RegistrarMovimientoScreen(
+                                  herramientas: loansInGroup.map((l) => l['herramientas'] as Map<String, dynamic>).toList(),
+                                  tipoInicial: 'ENTRADA',
+                                  prestamosIniciales: List<Map<String, dynamic>>.from(loansInGroup),
+                                ),
+                              ),
+                            ).then((result) {
+                              if (result == true) _fetchLoans();
+                            });
+                            return;
+                          }
+                        } catch (e) {
+                          debugPrint('Error fetching group loans: $e');
+                        }
+                      }
+
+                      if (!mounted) return;
                       Navigator.push(
                         context,
                         MaterialPageRoute(

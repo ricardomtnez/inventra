@@ -100,9 +100,10 @@ class SyncService extends ChangeNotifier {
             if (data.containsKey('cantidad_devuelta_increment')) {
               final int increment = data['cantidad_devuelta_increment'];
               // Consultar préstamo actual
-              final loan = await client.from(table).select('cantidad, cantidad_devuelta').eq('id', id).single();
+              final loan = await client.from(table).select('cantidad, cantidad_devuelta, grupo_id').eq('id', id).single();
               final int cantTotal = loan['cantidad'] as int;
               final int cantDevueltaAnterior = loan['cantidad_devuelta'] as int;
+              final String? loanGrupoId = loan['grupo_id'] as String?;
               final int nuevaCantDevuelta = cantDevueltaAnterior + increment;
               final int capDevuelta = nuevaCantDevuelta > cantTotal ? cantTotal : nuevaCantDevuelta;
               
@@ -117,14 +118,27 @@ class SyncService extends ChangeNotifier {
                 'fecha_devolucion': nuevoEstado == 'DEVUELTO' ? DateTime.now().toIso8601String() : null,
               }).eq('id', id);
 
-              // Eliminar la INE del storage si el préstamo se liquidó por completo
+              // Eliminar la INE del storage SOLO SI todas las herramientas del grupo se han devuelto
               if (nuevoEstado == 'DEVUELTO') {
-                try {
-                  await client.storage
-                      .from('fotos_herramientas')
-                      .remove(['identificaciones/ine_$id.jpg']);
-                } catch (e) {
-                  debugPrint('Error deleting offline INE: $e');
+                bool canDeleteIne = true;
+                if (loanGrupoId != null && loanGrupoId.isNotEmpty) {
+                  final remainingGroupLoans = await client
+                      .from('prestamos')
+                      .select('id')
+                      .eq('grupo_id', loanGrupoId)
+                      .neq('estado', 'DEVUELTO');
+                  if (remainingGroupLoans.isNotEmpty) {
+                    canDeleteIne = false;
+                  }
+                }
+                if (canDeleteIne) {
+                  try {
+                    await client.storage
+                        .from('fotos_herramientas')
+                        .remove(['identificaciones/ine_$id.jpg']);
+                  } catch (e) {
+                    debugPrint('Error deleting offline INE: $e');
+                  }
                 }
               }
             } else {

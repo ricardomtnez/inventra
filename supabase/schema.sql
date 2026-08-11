@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS public.prestamos (
     firma_base64 TEXT,
     observaciones TEXT,
     estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'PARCIAL', 'DEVUELTO')),
+    grupo_id UUID,
     fecha_prestamo TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     fecha_devolucion TIMESTAMP WITH TIME ZONE
 );
@@ -161,6 +162,7 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
     motivo TEXT NOT NULL CHECK (motivo IN (
         'COMPRA_NUEVA', 
         'DEVOLUCION_PRESTAMO', 
+        'PRESTAMO', 
         'PRESTAMO_ALUMNO_PROFESOR', 
         'BAJA_DESCOMPOSTURA', 
         'BAJA_PERDIDA',
@@ -174,6 +176,7 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
     entregado_por_uid UUID,
     observaciones TEXT,
     prestamo_id UUID REFERENCES public.prestamos(id) ON DELETE SET NULL,
+    grupo_id UUID,
     fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -313,6 +316,9 @@ CREATE POLICY "Acceso público de lectura a fotos" ON storage.objects
 
 CREATE POLICY "Carga de fotos reservada a administradores" ON storage.objects
     FOR INSERT TO authenticated WITH CHECK (bucket_id = 'fotos_herramientas' AND public.has_role(auth.uid(), 'ADMIN'));
+
+CREATE POLICY "Actualización de fotos reservada a administradores" ON storage.objects
+    FOR UPDATE TO authenticated USING (bucket_id = 'fotos_herramientas' AND public.has_role(auth.uid(), 'ADMIN'));
 
 CREATE POLICY "Eliminación de fotos reservada a administradores" ON storage.objects
     FOR DELETE TO authenticated USING (bucket_id = 'fotos_herramientas' AND public.has_role(auth.uid(), 'ADMIN'));

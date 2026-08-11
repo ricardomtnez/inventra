@@ -172,6 +172,21 @@ class _HistorialMovimientosScreenState
         }
       }
 
+      // Buscar si existen más préstamos asociados a este mismo grupo_id
+      final String? grupoId = prestamo['grupo_id'] as String?;
+      List<Map<String, dynamic>> groupLoans = [];
+      if (grupoId != null && grupoId.isNotEmpty) {
+        try {
+          final groupRes = await client
+              .from('prestamos')
+              .select('*, herramientas(*, unidades_medida(abreviatura))')
+              .eq('grupo_id', grupoId);
+          groupLoans = List<Map<String, dynamic>>.from(groupRes);
+        } catch (e) {
+          debugPrint('Error fetching group loans for PDF: $e');
+        }
+      }
+
       // Si el préstamo no está devuelto (por tanto, su INE sigue existiendo en Storage)
       // intentamos descargarla para pintarla en el vale reconstruido.
       if (estado != 'DEVUELTO') {
@@ -194,7 +209,9 @@ class _HistorialMovimientosScreenState
       final pdf = pw.Document();
 
       final folio = prestamo['folio'] ?? 0;
-      final folioStr = folio.toString().padLeft(6, '0');
+      final folioStr = (grupoId != null && grupoId.length >= 8)
+          ? grupoId.substring(0, 8).toUpperCase()
+          : folio.toString().padLeft(6, '0');
 
       final String dateStr;
       if (prestamo['fecha_prestamo'] != null) {
@@ -318,14 +335,6 @@ class _HistorialMovimientosScreenState
                       style: const pw.TextStyle(fontSize: 8),
                     ),
                     pw.Bullet(
-                      text: 'Herramienta: $toolName',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                    pw.Bullet(
-                      text: 'Cantidad: $cantidad $abrv',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                    pw.Bullet(
                       text: 'Responsable: $responsable',
                       style: const pw.TextStyle(fontSize: 8),
                     ),
@@ -350,12 +359,64 @@ class _HistorialMovimientosScreenState
                         style: const pw.TextStyle(fontSize: 8),
                       ),
                     pw.SizedBox(height: 10),
+                    if (groupLoans.length > 1) ...[
+                      pw.Text('EQUIPOS EN VALE:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.blue800)),
+                      pw.SizedBox(height: 4),
+                      pw.Table(
+                        border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                        children: [
+                          pw.TableRow(
+                            decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                            children: [
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Text('Herramienta', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+                              ),
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Text('Cant.', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
+                              ),
+                            ],
+                          ),
+                          ...groupLoans.map((gl) {
+                            final t = gl['herramientas'] ?? {};
+                            final q = gl['cantidad'] ?? 1;
+                            final ab = t['unidades_medida']?['abreviatura'] ?? 'Pza';
+                            return pw.TableRow(
+                              children: [
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(t['nombre'] ?? '', style: const pw.TextStyle(fontSize: 8)),
+                                ),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text('$q $ab', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                      pw.SizedBox(height: 10),
+                    ] else ...[
+                      pw.Bullet(
+                        text: 'Herramienta: $toolName',
+                        style: const pw.TextStyle(fontSize: 8),
+                      ),
+                      pw.Bullet(
+                        text: 'Cantidad: $cantidad $abrv',
+                        style: const pw.TextStyle(fontSize: 8),
+                      ),
+                      pw.SizedBox(height: 10),
+                    ],
                     pw.Center(
                       child: pw.Column(
                         children: [
                           pw.BarcodeWidget(
                             barcode: pw.Barcode.qrCode(),
-                            data: 'INVENTRA_PRESTAMO:${prestamo['id']}',
+                            data: (grupoId != null && grupoId.isNotEmpty)
+                                ? 'INVENTRA_VALE:$grupoId'
+                                : 'INVENTRA_PRESTAMO:${prestamo['id']}',
                             width: 85,
                             height: 85,
                           ),
