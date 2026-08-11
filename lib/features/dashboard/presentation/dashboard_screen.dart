@@ -25,6 +25,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   StreamSubscription<AuthState>? _authSubscription;
   final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
+  final GlobalKey _herramientasKey = GlobalKey();
+  final GlobalKey _deudoresKey = GlobalKey();
+  final GlobalKey _historialKey = GlobalKey();
 
   @override
   void initState() {
@@ -54,6 +57,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
+  void _refrescarTodasLasPestanas() {
+    _homeTabKey.currentState?.refresh();
+    (_herramientasKey.currentState as dynamic)?.refresh();
+    (_deudoresKey.currentState as dynamic)?.refresh();
+    (_historialKey.currentState as dynamic)?.refresh();
+  }
+
   void _onTabChanged(int index) {
     // Tab del scanner abre modal, no cambia de pantalla
     if (index == 2) {
@@ -62,9 +72,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     HapticFeedback.selectionClick();
+    
+    // Al tocar cualquier pestaña, refrescamos el contenido de esa pestaña
     if (index == 0) {
       _homeTabKey.currentState?.refresh();
+    } else if (index == 1) {
+      (_herramientasKey.currentState as dynamic)?.refresh();
+    } else if (index == 3) {
+      (_historialKey.currentState as dynamic)?.refresh();
+    } else if (index == 4) {
+      (_deudoresKey.currentState as dynamic)?.refresh();
     }
+    
     setState(() => _selectedIndex = index);
   }
 
@@ -81,7 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(
                 builder: (_) => ScannerView(defaultTipo: 'ENTRADA')),
           );
-          _homeTabKey.currentState?.refresh();
+          _refrescarTodasLasPestanas();
         },
         onSalida: () async {
           Navigator.pop(context);
@@ -90,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(
                 builder: (_) => ScannerView(defaultTipo: 'SALIDA')),
           );
-          _homeTabKey.currentState?.refresh();
+          _refrescarTodasLasPestanas();
         },
       ),
     );
@@ -127,9 +146,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   index: stackIndex,
                   children: [
                     _HomeTab(key: _homeTabKey),
-                    const HerramientasListScreen(),
-                    const DeudoresListScreen(),
-                    const HistorialMovimientosScreen(),
+                    HerramientasListScreen(key: _herramientasKey),
+                    DeudoresListScreen(key: _deudoresKey),
+                    HistorialMovimientosScreen(key: _historialKey),
                   ],
                 ),
               ),

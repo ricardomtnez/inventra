@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../herramientas_catalogo/data/herramientas_repository.dart';
@@ -28,6 +29,7 @@ class _HistorialMovimientosScreenState
   final _repository = HerramientasRepository();
   final _authRepository = AuthRepository();
   final _searchController = TextEditingController();
+  RealtimeChannel? _realtimeChannel;
 
   List<Map<String, dynamic>> _movimientos = [];
   bool _isLoading = true;
@@ -40,10 +42,38 @@ class _HistorialMovimientosScreenState
   void initState() {
     super.initState();
     _cargarHistorial();
+    _suscribirRealtime();
+  }
+
+  void _suscribirRealtime() {
+    try {
+      _realtimeChannel = SupabaseClientHelper.client
+          .channel('public:historial_updates')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'movimientos',
+            callback: (payload) => _cargarHistorial(),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'prestamos',
+            callback: (payload) => _cargarHistorial(),
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Error en realtime historial: $e');
+    }
+  }
+
+  void refresh() {
+    _cargarHistorial();
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     super.dispose();
   }

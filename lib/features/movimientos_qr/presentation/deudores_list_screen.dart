@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -19,15 +20,38 @@ class _DeudoresListScreenState extends State<DeudoresListScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _fetchLoans();
+    _suscribirRealtime();
+  }
+
+  void _suscribirRealtime() {
+    try {
+      _realtimeChannel = SupabaseClientHelper.client
+          .channel('public:deudores_updates')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'prestamos',
+            callback: (payload) => _fetchLoans(),
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Error en realtime deudores: $e');
+    }
+  }
+
+  void refresh() {
+    _fetchLoans();
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     super.dispose();
   }

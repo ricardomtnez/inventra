@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../data/herramientas_repository.dart';
 import 'herramientas_form.dart';
@@ -22,11 +24,45 @@ class _HerramientasListScreenState extends State<HerramientasListScreen> {
   bool _isLoading = true;
   bool _isSelectionMode = false;
   final Set<String> _selectedToolIds = {};
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _cargarHerramientas();
+    _suscribirRealtime();
+  }
+
+  void _suscribirRealtime() {
+    try {
+      _realtimeChannel = SupabaseClientHelper.client
+          .channel('public:herramientas_updates')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'herramientas',
+            callback: (payload) => _cargarHerramientas(),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'movimientos',
+            callback: (payload) => _cargarHerramientas(),
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Error en realtime herramientas: $e');
+    }
+  }
+
+  void refresh() {
+    _cargarHerramientas();
+  }
+
+  @override
+  void dispose() {
+    _realtimeChannel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _cargarHerramientas() async {
