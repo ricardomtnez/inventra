@@ -24,6 +24,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   StreamSubscription<AuthState>? _authSubscription;
+  final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
 
   @override
   void initState() {
@@ -61,6 +62,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     HapticFeedback.selectionClick();
+    if (index == 0) {
+      _homeTabKey.currentState?.refresh();
+    }
     setState(() => _selectedIndex = index);
   }
 
@@ -77,8 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(
                 builder: (_) => ScannerView(defaultTipo: 'ENTRADA')),
           );
-          // Refrescar home tab si está activo
-          if (_selectedIndex == 0) setState(() {});
+          _homeTabKey.currentState?.refresh();
         },
         onSalida: () async {
           Navigator.pop(context);
@@ -87,7 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(
                 builder: (_) => ScannerView(defaultTipo: 'SALIDA')),
           );
-          if (_selectedIndex == 0) setState(() {});
+          _homeTabKey.currentState?.refresh();
         },
       ),
     );
@@ -109,6 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       canPop: _selectedIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        _homeTabKey.currentState?.refresh();
         setState(() => _selectedIndex = 0);
       },
       child: GestureDetector(
@@ -121,11 +125,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: IndexedStack(
                   index: stackIndex,
-                  children: const [
-                    _HomeTab(),
-                    HerramientasListScreen(),
-                    DeudoresListScreen(),
-                    HistorialMovimientosScreen(),
+                  children: [
+                    _HomeTab(key: _homeTabKey),
+                    const HerramientasListScreen(),
+                    const DeudoresListScreen(),
+                    const HistorialMovimientosScreen(),
                   ],
                 ),
               ),
@@ -302,7 +306,7 @@ class _ScannerNavButton extends StatelessWidget {
 
 // ── Home Tab (KPI Dashboard) ──────────────────────────────────────────────────
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -374,6 +378,10 @@ class _HomeTabState extends State<_HomeTab>
     _realtimeChannel?.unsubscribe();
     _enterController.dispose();
     super.dispose();
+  }
+
+  void refresh() {
+    _cargarTodo();
   }
 
   Future<void> _cargarTodo() async {
